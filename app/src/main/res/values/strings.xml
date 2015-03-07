@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Prueba localizacion</string>
+    <string name="title_activity_main">MainActivity</string>
+
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_relevar">Relevar</string>
+
+    <string name="first">Last</string>
+    <string name="last">Last</string>
+    <string name="action_guardar">Guardar</string>
+    <string name="string_cancelar">Cancelar</string>
+</resources>
