@@ -7,6 +7,8 @@ import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.support.v4.app.Fragment;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -102,10 +104,10 @@ public class RelevamientoFragment extends Fragment {
 
     private HashMap<String, DatoRelevamiento> generarDatos() {
         HashMap<String, DatoRelevamiento> datos = new HashMap<>();
-        for (int i = 0; i < mMateriales.length; i++) {
-            for(int j=0;j<mCandidatos.length;j++){
-                DatoRelevamiento dato = new DatoRelevamiento(mCandidatos[j],mMateriales[i],0);
-                datos.put(getKey(dato.mCandidato, dato.mMaterial),dato);
+        for (String mMaterial : mMateriales) {
+            for (String mCandidato : mCandidatos) {
+                DatoRelevamiento dato = new DatoRelevamiento(mCandidato, mMaterial, 0);
+                datos.put(getKey(dato.mCandidato, dato.mMaterial), dato);
             }
         }
         return datos;
@@ -145,13 +147,11 @@ public class RelevamientoFragment extends Fragment {
         int[] gradosCumplimientoInt = res.getIntArray(R.array.grado_cumplimiento_array);
         Integer[] gradosCumplimiento = new Integer[gradosCumplimientoInt.length];
         for (int i = 0; i < gradosCumplimientoInt.length; i++) {
-            gradosCumplimiento[i]=Integer.valueOf(gradosCumplimientoInt[i]);
+            gradosCumplimiento[i]= gradosCumplimientoInt[i];
         }
 
 
-        TableLayout.LayoutParams tableLayoutParams = new TableLayout.LayoutParams();
         TableRow.LayoutParams tableRowParams = new TableRow.LayoutParams();
-        //tableRowParams.weight=1;
 
         //Cabecera de la tabla
         TableRow tableRow = (TableRow)inflater.inflate(R.layout.table_row_relevamiento,tableLayout,false);
@@ -171,20 +171,20 @@ public class RelevamientoFragment extends Fragment {
 
         tableRowParams = new TableRow.LayoutParams();
         //tableRowParams.weight=1;
-        for (int i = 0; i < mMateriales.length; i++) {
-            tableRow = (TableRow)inflater.inflate(R.layout.table_row_relevamiento,tableLayout,false);
+        for (String mMateriale : mMateriales) {
+            tableRow = (TableRow) inflater.inflate(R.layout.table_row_relevamiento, tableLayout, false);
 
-            rowHeaderText=new TextView(context);
+            rowHeaderText = new TextView(context);
             rowHeaderText.setId(ViewId.getInstance().getUniqueId());
             rowHeaderText.setGravity(Gravity.LEFT);
-            rowHeaderText.setText(mMateriales[i]);
+            rowHeaderText.setText(mMateriale);
 
             tableRow.addView(rowHeaderText);
 
-            for (int j= 0; j < mCandidatos.length; j++) {
+            for (int j = 0; j < mCandidatos.length; j++) {
 
-                DatoRelevamiento dato = mDatosRelevamiento.get(getKey(mCandidatos[j], mMateriales[i]));
-                View spinner = crearSpinner(context, candidatosColores.getColor(j,0), gradosCumplimiento, dato);
+                DatoRelevamiento dato = mDatosRelevamiento.get(getKey(mCandidatos[j], mMateriale));
+                View spinner = crearSpinner(context, candidatosColores.getColor(j, 0), gradosCumplimiento, dato);
 
                 tableRow.addView(spinner, tableRowParams);
             }
@@ -300,7 +300,7 @@ public class RelevamientoFragment extends Fragment {
                     ratioCumplimiento = 1.0;
                 }
             }
-            Double alpha = new Double(255.0 * ratioCumplimiento);
+            Double alpha = 255.0 * ratioCumplimiento;
 
             int color = Color.argb(alpha.intValue(), Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor));
             ImageView imgColor = (ImageView) view;
@@ -333,7 +333,7 @@ public class RelevamientoFragment extends Fragment {
         }
     }
 
-    public class DatoRelevamiento {
+    public class DatoRelevamiento implements Parcelable {
         public String mCandidato;
         public String mMaterial;
         public int mCumplimiento;
@@ -342,6 +342,19 @@ public class RelevamientoFragment extends Fragment {
             mCandidato = candidato;
             mMaterial = material;
             mCumplimiento = cumplimiento;
+        }
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+            dest.writeString(mCandidato);
+            dest.writeString(mMaterial);
+            dest.writeInt(mCumplimiento);
+
         }
     }
 
