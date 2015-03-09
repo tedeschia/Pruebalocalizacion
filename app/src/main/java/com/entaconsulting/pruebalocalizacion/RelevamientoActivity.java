@@ -5,24 +5,20 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.app.FragmentTransaction;
-import android.support.v4.app.ListFragment;
 import android.support.v4.view.ViewPager;
 import android.os.Bundle;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
-import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ListView;
-import android.widget.TextView;
 
 import java.security.InvalidParameterException;
 
 
-public class MainActivity extends ActionBarActivity implements RelevamientoFragment.OnFragmentInteractionListener {
+public class RelevamientoActivity extends ActionBarActivity
+        implements RelevamientoDetalleFragment.OnFragmentInteractionListener,
+        RelevamientoFragment.OnFragmentInteractionListener
+{
     static final int NUM_ITEMS = 1;
     private static final String TAG = "MainActivity";
 
@@ -30,7 +26,7 @@ public class MainActivity extends ActionBarActivity implements RelevamientoFragm
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_relevamiento);
 
         initViewPager();
 
@@ -117,13 +113,7 @@ public class MainActivity extends ActionBarActivity implements RelevamientoFragm
             Fragment result;
             switch(position){
                 case 0:
-                    result = RelevamientoFragment.newInstance("","");
-                    break;
-                case 1:
-                    result = RelevamientoFragment.newInstance("","");
-                    break;
-                case 2:
-                    result = RelevamientoFragment.newInstance("","");
+                    result = RelevamientoFragment.newInstance("", "");
                     break;
                 default:
                     throw new InvalidParameterException("position sin fragment definido");

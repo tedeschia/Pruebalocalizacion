@@ -3,6 +3,7 @@
     package="com.entaconsulting.pruebalocalizacion" >
 
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
@@ -19,7 +20,7 @@
             android:value="@integer/google_play_services_version" />
 
         <activity
-            android:name=".MainActivity"
+            android:name=".RelevamientoActivity"
             android:label="@string/title_activity_main" android:uiOptions="splitActionBarWhenNarrow">
 
             <meta-data android:name="android.support.UI_OPTIONS"

@@ -1,31 +1,38 @@
 package com.entaconsulting.pruebalocalizacion;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
-import android.content.res.Resources;
-import android.content.res.TypedArray;
-import android.graphics.Color;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Parcel;
-import android.os.Parcelable;
 import android.support.v4.app.Fragment;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.ImageView;
-import android.widget.Spinner;
-import android.widget.TableLayout;
-import android.widget.TableRow;
+import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import java.util.HashMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+import com.microsoft.windowsazure.mobileservices.MobileServiceClient;
+import com.microsoft.windowsazure.mobileservices.http.NextServiceFilterCallback;
+import com.microsoft.windowsazure.mobileservices.http.ServiceFilter;
+import com.microsoft.windowsazure.mobileservices.http.ServiceFilterRequest;
+import com.microsoft.windowsazure.mobileservices.http.ServiceFilterResponse;
+import com.microsoft.windowsazure.mobileservices.table.MobileServiceTable;
+
+import java.net.MalformedURLException;
+import java.util.List;
+
+import static com.microsoft.windowsazure.mobileservices.table.query.QueryOperations.val;
 
 
 /**
@@ -41,15 +48,28 @@ public class RelevamientoFragment extends Fragment {
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
-    private static final String STATE_DATOS_RELEVAMIENTO = "datosCumplimiento";
 
     // TODO: Rename and change types of parameters
     private String mParam1;
     private String mParam2;
 
-    private HashMap<String, DatoRelevamiento> mDatosRelevamiento;
-    private String[] mCandidatos;
-    private String[] mMateriales;
+    private MobileServiceClient mClient;
+
+    /**
+     * Mobile Service Table used to access data
+     */
+    private MobileServiceTable<Relevamiento> mRelevamientoTable;
+
+    /**
+     * Adapter to sync the items list with the view
+     */
+    private RelevamientoAdapter mAdapter;
+
+
+    /**
+     * Progress spinner to use for table operations
+     */
+    private ProgressBar mProgressBar;
 
     private OnFragmentInteractionListener mListener;
 
@@ -84,138 +104,77 @@ public class RelevamientoFragment extends Fragment {
         }
         setHasOptionsMenu(true);
 
-        leerConfiguracion();
+        inicializarDatos();
+    }
 
-        if(savedInstanceState!=null){
-            mDatosRelevamiento = (HashMap<String, DatoRelevamiento>)savedInstanceState.getSerializable(STATE_DATOS_RELEVAMIENTO);
-        }else{
-            mDatosRelevamiento = generarDatos();
+    private void inicializarDatos() {
+
+        try {
+            // Create the Mobile Service Client instance, using the provided
+            // Mobile Service URL and key
+            mClient = new MobileServiceClient(
+                    "https://relevamientoterritorial.azure-mobile.net/",
+                    "BQbVnKfbptcoGWgAuKQJyzYmCDjdII54",
+                    getActivity()).withFilter(new ProgressFilter());
+
+            // Get the Mobile Service Table instance to use
+            mRelevamientoTable = mClient.getTable(Relevamiento.class);
+
+        } catch (MalformedURLException e) {
+            createAndShowDialog(new Exception("There was an error creating the Mobile Service. Verify the URL"), "Error");
         }
+
     }
 
-    @Override
-    public void onSaveInstanceState(Bundle savedInstanceState) {
-        // Save the user's current game state
-        savedInstanceState.putSerializable(STATE_DATOS_RELEVAMIENTO, mDatosRelevamiento);
-
-        // Always call the superclass so it can save the view hierarchy state
-        super.onSaveInstanceState(savedInstanceState);
-    }
-
-    private HashMap<String, DatoRelevamiento> generarDatos() {
-        HashMap<String, DatoRelevamiento> datos = new HashMap<>();
-        for (String mMaterial : mMateriales) {
-            for (String mCandidato : mCandidatos) {
-                DatoRelevamiento dato = new DatoRelevamiento(mCandidato, mMaterial, 0);
-                datos.put(getKey(dato.mCandidato, dato.mMaterial), dato);
-            }
-        }
-        return datos;
-    }
-
-    private String getKey(String candidato, String material) {
-        return candidato+material;
-    }
-
-    private void leerConfiguracion(){
-        Resources res = getResources();
-        mCandidatos = res.getStringArray(R.array.candidatos_array);
-        mMateriales = res.getStringArray(R.array.materiales_array);
-    }
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         View main = inflater.inflate(R.layout.fragment_relevamiento, container, false);
-        TableLayout table = (TableLayout) main.findViewById(R.id.main_table);
+        inicializarLista(getActivity(), main);
 
-        buildTable(table, inflater, getActivity());
         return main;
+    }
+
+    private void inicializarLista(Context context, View view){
+        mProgressBar = (ProgressBar) view.findViewById(R.id.loadingProgressBar);
+
+        // Initialize the progress bar
+        mProgressBar.setVisibility(ProgressBar.GONE);
+
+        // Create the Mobile Service Client instance, using the provided
+        // Mobile Service URL and key
+        // Get the Mobile Service Table instance to use
+        mRelevamientoTable = mClient.getTable(Relevamiento.class);
+
+        // Create an adapter to bind the items with the view
+        mAdapter = new RelevamientoAdapter(context, R.layout.row_list_relevamiento);
+        ListView listViewRelevamiento = (ListView) view.findViewById(R.id.listViewRelevamiento);
+        listViewRelevamiento.setAdapter(mAdapter);
+
+        // Load the items from the Mobile Service
+        refreshItemsFromTable();
     }
 
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-        inflater.inflate(R.menu.fragment_relevamiento_actions, menu);
+        inflater.inflate(R.menu.fragment_relevamiento_detalle_actions, menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_refresh) {
+            refreshItemsFromTable();
+        }
+
+        return true;
     }
 
 
-    private void buildTable(TableLayout tableLayout, LayoutInflater inflater, Context context) {
-
-        Resources res = getResources();
-
-        TypedArray candidatosColores = res.obtainTypedArray(R.array.candidatos_colores_array);
-        int[] gradosCumplimientoInt = res.getIntArray(R.array.grado_cumplimiento_array);
-        Integer[] gradosCumplimiento = new Integer[gradosCumplimientoInt.length];
-        for (int i = 0; i < gradosCumplimientoInt.length; i++) {
-            gradosCumplimiento[i]= gradosCumplimientoInt[i];
+    // TODO: Rename method, update argument and hook method into UI event
+    public void onButtonPressed(Uri uri) {
+        if (mListener != null) {
+            mListener.onFragmentInteraction(uri);
         }
-
-
-        TableRow.LayoutParams tableRowParams = new TableRow.LayoutParams();
-
-        //Cabecera de la tabla
-        TableRow tableRow = (TableRow)inflater.inflate(R.layout.table_row_relevamiento,tableLayout,false);
-        tableRow.setId(ViewId.getInstance().getUniqueId());
-
-        TextView rowHeaderText=new TextView(context);
-        rowHeaderText.setId(ViewId.getInstance().getUniqueId());
-        rowHeaderText.setText("");
-        tableRow.addView(rowHeaderText);
-        for (int j= 0; j < mCandidatos.length; j++) {
-            View candidatoView = GradoCumplimientoViewHelper.GetGradoCumplimientoView(candidatosColores.getColor(j,0), inflater,tableRow);
-            candidatoView.setId(ViewId.getInstance().getUniqueId());
-            tableRow.addView(candidatoView);
-        }
-        tableLayout.addView(tableRow);
-
-
-        tableRowParams = new TableRow.LayoutParams();
-        //tableRowParams.weight=1;
-        for (String mMateriale : mMateriales) {
-            tableRow = (TableRow) inflater.inflate(R.layout.table_row_relevamiento, tableLayout, false);
-
-            rowHeaderText = new TextView(context);
-            rowHeaderText.setId(ViewId.getInstance().getUniqueId());
-            rowHeaderText.setGravity(Gravity.LEFT);
-            rowHeaderText.setText(mMateriale);
-
-            tableRow.addView(rowHeaderText);
-
-            for (int j = 0; j < mCandidatos.length; j++) {
-
-                DatoRelevamiento dato = mDatosRelevamiento.get(getKey(mCandidatos[j], mMateriale));
-                View spinner = crearSpinner(context, candidatosColores.getColor(j, 0), gradosCumplimiento, dato);
-
-                tableRow.addView(spinner, tableRowParams);
-            }
-
-            tableLayout.addView(tableRow);
-        }
-    }
-
-    private View crearSpinner(Context context, int color, Integer[] gradosCumplimiento, final DatoRelevamiento dato) {
-        Spinner spinner = new Spinner(context);
-        spinner.setId(ViewId.getInstance().getUniqueId());
-
-        GradoCumplimientoAdapter adapter = new GradoCumplimientoAdapter(context, android.R.layout.simple_spinner_item,gradosCumplimiento, color);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner.setAdapter(adapter);
-        spinner.setSelection(dato.mCumplimiento);
-
-        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                dato.mCumplimiento = (int)parent.getItemAtPosition(position);
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-                dato.mCumplimiento = 0;
-            }
-        });
-
-        return spinner;
     }
 
     @Override
@@ -235,6 +194,60 @@ public class RelevamientoFragment extends Fragment {
         mListener = null;
     }
 
+    private void refreshItemsFromTable() {
+
+        // Get the items that weren't marked as completed and add them in the
+        // adapter
+
+        new AsyncTask<Void, Void, Void>(){
+            @Override
+            protected Void doInBackground(Void... params) {
+                try {
+                    final List<Relevamiento> results =
+                            mRelevamientoTable.execute().get();
+                    getActivity().runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mAdapter.clear();
+
+                            for (Relevamiento item : results) {
+                                mAdapter.add(item);
+                            }
+                        }
+                    });
+                } catch (Exception e){
+                    createAndShowDialog(e, "Error");
+                }
+
+                return null;
+            }
+        }.execute();
+
+    }
+
+    private void createAndShowDialog(final String message, final String title) {
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                final AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+
+                builder.setMessage(message);
+                builder.setTitle(title);
+                builder.create().show();
+            }
+        });
+
+    }
+    private void createAndShowDialog(Exception exception, String title) {
+        Throwable ex = exception;
+        if(exception.getCause() != null){
+            ex = exception.getCause();
+        }
+        createAndShowDialog(ex.getMessage(), title);
+    }
+
+
+
     /**
      * This interface must be implemented by activities that contain this
      * fragment to allow an interaction in this fragment to be communicated
@@ -250,114 +263,88 @@ public class RelevamientoFragment extends Fragment {
         public void onFragmentInteraction(Uri uri);
     }
 
-    public class GradoCumplimientoAdapter extends ArrayAdapter<Integer> {
+    public class RelevamientoAdapter extends ArrayAdapter<Relevamiento> {
 
-        //private String[] mObjects;
-        private int mBaseColor;
-        private int mMaxGrado;
+        /**
+         * Adapter context
+         */
+        Context mContext;
 
-        public GradoCumplimientoAdapter(Context ctx, int txtViewResourceId, Integer[] grados, int baseColor) {
-            super(ctx, txtViewResourceId, grados);
-            //mObjects = objects;
-            mBaseColor = baseColor;
-            mMaxGrado=0;
-            for (Integer grado : grados) {
-                if(grado>mMaxGrado)
-                    mMaxGrado=grado;
+        /**
+         * Adapter View layout
+         */
+        int mLayoutResourceId;
+
+        public RelevamientoAdapter(Context context, int layoutResourceId) {
+            super(context, layoutResourceId);
+
+            mContext = context;
+            mLayoutResourceId = layoutResourceId;
+        }
+
+        /**
+         * Returns the view for a specific item on the list
+         */
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            View row = convertView;
+
+            final Relevamiento currentItem = getItem(position);
+
+            if (row == null) {
+                LayoutInflater inflater = getActivity().getLayoutInflater();
+                row = inflater.inflate(mLayoutResourceId, parent, false);
             }
 
+            row.setTag(currentItem);
+            final TextView textDate = (TextView) row.findViewById(R.id.relevamiento_date);
+            textDate.setText(currentItem.getFecha().toString());
+
+            return row;
         }
 
-        @Override
-        public View getDropDownView(int position, View cnvtView, ViewGroup prnt) {
-            return getCustomView(position, cnvtView, prnt);
-        }
-
-        @Override
-        public View getView(int pos, View cnvtView, ViewGroup prnt) {
-            return getCustomView(pos, cnvtView, prnt);
-        }
-
-        public View getCustomView(int position, View convertView, ViewGroup parent) {
-            LayoutInflater inflater = getActivity().getLayoutInflater();
-            return GradoCumplimientoViewHelper.GetGradoCumplimientoView(mBaseColor,getItem(position),mMaxGrado,inflater, parent);
-        }
     }
 
-    public static class GradoCumplimientoViewHelper{
-        private static final double MIN_RATIO_CUMPLIMIENTO = 0.15;
+    private class ProgressFilter implements ServiceFilter {
 
-        public static View GetGradoCumplimientoView(int baseColor, int gradoCumplimiento, int maxGradoCumplimiento, LayoutInflater inflater, ViewGroup parent){
-            View view = inflater.inflate(R.layout.spinner_grado_cumplimiento, parent, false);
-            view.setId(ViewId.getInstance().getUniqueId());
+        @Override
+        public ListenableFuture<ServiceFilterResponse> handleRequest(ServiceFilterRequest request, NextServiceFilterCallback nextServiceFilterCallback) {
 
-            double ratioCumplimiento = 0;//(float)gradoCumplimiento / maxGradoCumplimiento;
-            if(gradoCumplimiento>0) {
-                if (gradoCumplimiento < maxGradoCumplimiento) {
-                    ratioCumplimiento = MIN_RATIO_CUMPLIMIENTO +
-                            ((gradoCumplimiento - 1.0) / (maxGradoCumplimiento - 1.0)) * (1.0 - MIN_RATIO_CUMPLIMIENTO);
-                } else {
-                    ratioCumplimiento = 1.0;
+            final SettableFuture<ServiceFilterResponse> resultFuture = SettableFuture.create();
+
+
+            getActivity().runOnUiThread(new Runnable() {
+
+                @Override
+                public void run() {
+                    if (mProgressBar != null) mProgressBar.setVisibility(ProgressBar.VISIBLE);
                 }
-            }
-            Double alpha = 255.0 * ratioCumplimiento;
+            });
 
-            int color = Color.argb(alpha.intValue(), Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor));
-            ImageView imgColor = (ImageView) view;
-            imgColor.setBackgroundColor(color);
+            ListenableFuture<ServiceFilterResponse> future = nextServiceFilterCallback.onNext(request);
 
-            return view;
-        }
+            Futures.addCallback(future, new FutureCallback<ServiceFilterResponse>() {
+                @Override
+                public void onFailure(Throwable e) {
+                    resultFuture.setException(e);
+                }
 
-        public static View GetGradoCumplimientoView(int color, LayoutInflater inflater, ViewGroup parent) {
-            return GetGradoCumplimientoView(color, 1,1,inflater,parent);
-        }
-    }
+                @Override
+                public void onSuccess(ServiceFilterResponse response) {
+                    getActivity().runOnUiThread(new Runnable() {
 
-    public static class ViewId {
+                        @Override
+                        public void run() {
+                            if (mProgressBar != null) mProgressBar.setVisibility(ProgressBar.GONE);
+                        }
+                    });
 
-        private static ViewId INSTANCE = new ViewId();
+                    resultFuture.set(response);
+                }
+            });
 
-        private AtomicInteger seq;
-
-        private ViewId() {
-            seq = new AtomicInteger(Integer.MAX_VALUE);
-        }
-
-        public int getUniqueId() {
-            return seq.getAndDecrement();
-        }
-
-        public static ViewId getInstance() {
-            return INSTANCE;
+            return resultFuture;
         }
     }
-
-    public class DatoRelevamiento implements Parcelable {
-        public String mCandidato;
-        public String mMaterial;
-        public int mCumplimiento;
-
-        public DatoRelevamiento(String candidato, String material, int cumplimiento) {
-            mCandidato = candidato;
-            mMaterial = material;
-            mCumplimiento = cumplimiento;
-        }
-
-        @Override
-        public int describeContents() {
-            return 0;
-        }
-
-        @Override
-        public void writeToParcel(Parcel dest, int flags) {
-            dest.writeString(mCandidato);
-            dest.writeString(mMaterial);
-            dest.writeInt(mCumplimiento);
-
-        }
-    }
-
 
 }
-
