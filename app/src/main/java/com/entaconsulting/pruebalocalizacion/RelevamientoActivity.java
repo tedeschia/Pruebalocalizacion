@@ -1,16 +1,21 @@
 package com.entaconsulting.pruebalocalizacion;
 
+import android.content.Intent;
 import android.net.Uri;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.app.FragmentTransaction;
+import android.support.v4.app.NavUtils;
 import android.support.v4.view.ViewPager;
 import android.os.Bundle;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
 import android.view.MenuInflater;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.EditText;
 
 import java.security.InvalidParameterException;
 
@@ -20,7 +25,7 @@ public class RelevamientoActivity extends ActionBarActivity
         RelevamientoFragment.OnFragmentInteractionListener
 {
     static final int NUM_ITEMS = 1;
-    private static final String TAG = "MainActivity";
+    private static final String TAG = "RelevamientoActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,9 +98,30 @@ public class RelevamientoActivity extends ActionBarActivity
         return super.onCreateOptionsMenu(menu);
     }
 
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_new) {
+            addRelevamiento();
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    public void addRelevamiento() {
+        Intent intent = new Intent(this, RelevamientoDetalleActivity.class);
+        String message = RelevamientoDetalleFragment.ACTION_ADD;
+        intent.putExtra(RelevamientoDetalleFragment.ACTION_MESSAGE, message);
+        startActivity(intent);
+    }
+
     @Override
     public void onFragmentInteraction(Uri uri) {
 
+    }
+
+    @Override
+    public void onItemSaved() {
     }
 
     public static class ViewPagerAdapter extends FragmentPagerAdapter {

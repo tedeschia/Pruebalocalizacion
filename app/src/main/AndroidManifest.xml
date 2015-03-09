@@ -21,9 +21,10 @@
 
         <activity
             android:name=".RelevamientoActivity"
-            android:label="@string/title_activity_main" android:uiOptions="splitActionBarWhenNarrow">
-
-            <meta-data android:name="android.support.UI_OPTIONS"
+            android:label="@string/title_activity_main"
+            android:uiOptions="splitActionBarWhenNarrow" >
+            <meta-data
+                android:name="android.support.UI_OPTIONS"
                 android:value="splitActionBarWhenNarrow" />
 
             <intent-filter>
@@ -31,6 +32,14 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+        <activity
+            android:name=".RelevamientoDetalleActivity"
+            android:label="@string/title_activity_relevamiento_detalle"
+            android:parentActivityName=".RelevamientoActivity" >
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.entaconsulting.pruebalocalizacion.RelevamientoActivity" />
         </activity>
     </application>
 

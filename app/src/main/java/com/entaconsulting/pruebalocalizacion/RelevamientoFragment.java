@@ -1,7 +1,6 @@
 package com.entaconsulting.pruebalocalizacion;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -17,19 +16,9 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import com.microsoft.windowsazure.mobileservices.MobileServiceClient;
-import com.microsoft.windowsazure.mobileservices.http.NextServiceFilterCallback;
-import com.microsoft.windowsazure.mobileservices.http.ServiceFilter;
-import com.microsoft.windowsazure.mobileservices.http.ServiceFilterRequest;
-import com.microsoft.windowsazure.mobileservices.http.ServiceFilterResponse;
-import com.microsoft.windowsazure.mobileservices.table.MobileServiceTable;
-
-import java.net.MalformedURLException;
+import com.microsoft.windowsazure.mobileservices.table.query.Query;
+import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
 import java.util.List;
 
 import static com.microsoft.windowsazure.mobileservices.table.query.QueryOperations.val;
@@ -53,12 +42,13 @@ public class RelevamientoFragment extends Fragment {
     private String mParam1;
     private String mParam2;
 
-    private MobileServiceClient mClient;
+    private DataHelper mClient;
 
     /**
      * Mobile Service Table used to access data
      */
-    private MobileServiceTable<Relevamiento> mRelevamientoTable;
+    private MobileServiceSyncTable<Relevamiento> mRelevamientoTable;
+    private Query mPullQuery;
 
     /**
      * Adapter to sync the items list with the view
@@ -72,6 +62,7 @@ public class RelevamientoFragment extends Fragment {
     private ProgressBar mProgressBar;
 
     private OnFragmentInteractionListener mListener;
+    private ProgressFilter mProgressFilter;
 
     /**
      * Use this factory method to create a new instance of
@@ -109,20 +100,8 @@ public class RelevamientoFragment extends Fragment {
 
     private void inicializarDatos() {
 
-        try {
-            // Create the Mobile Service Client instance, using the provided
-            // Mobile Service URL and key
-            mClient = new MobileServiceClient(
-                    "https://relevamientoterritorial.azure-mobile.net/",
-                    "BQbVnKfbptcoGWgAuKQJyzYmCDjdII54",
-                    getActivity()).withFilter(new ProgressFilter());
-
-            // Get the Mobile Service Table instance to use
-            mRelevamientoTable = mClient.getTable(Relevamiento.class);
-
-        } catch (MalformedURLException e) {
-            createAndShowDialog(new Exception("There was an error creating the Mobile Service. Verify the URL"), "Error");
-        }
+        mProgressFilter = new ProgressFilter(getActivity());
+        mClient = new DataHelper(getActivity(),mProgressFilter);
 
     }
 
@@ -137,14 +116,14 @@ public class RelevamientoFragment extends Fragment {
 
     private void inicializarLista(Context context, View view){
         mProgressBar = (ProgressBar) view.findViewById(R.id.loadingProgressBar);
-
-        // Initialize the progress bar
+        mProgressFilter.setProgressBar(mProgressBar);
         mProgressBar.setVisibility(ProgressBar.GONE);
 
         // Create the Mobile Service Client instance, using the provided
         // Mobile Service URL and key
         // Get the Mobile Service Table instance to use
-        mRelevamientoTable = mClient.getTable(Relevamiento.class);
+        mRelevamientoTable = mClient.getClient().getSyncTable(Relevamiento.class);
+        mPullQuery = mClient.getClient().getTable(Relevamiento.class).where();
 
         // Create an adapter to bind the items with the view
         mAdapter = new RelevamientoAdapter(context, R.layout.row_list_relevamiento);
@@ -152,12 +131,12 @@ public class RelevamientoFragment extends Fragment {
         listViewRelevamiento.setAdapter(mAdapter);
 
         // Load the items from the Mobile Service
-        refreshItemsFromTable();
+        loadItemsFromTable();
     }
 
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-        inflater.inflate(R.menu.fragment_relevamiento_detalle_actions, menu);
+        inflater.inflate(R.menu.fragment_relevamiento_actions, menu);
     }
 
     @Override
@@ -194,7 +173,7 @@ public class RelevamientoFragment extends Fragment {
         mListener = null;
     }
 
-    private void refreshItemsFromTable() {
+    private void loadItemsFromTable() {
 
         // Get the items that weren't marked as completed and add them in the
         // adapter
@@ -204,7 +183,7 @@ public class RelevamientoFragment extends Fragment {
             protected Void doInBackground(Void... params) {
                 try {
                     final List<Relevamiento> results =
-                            mRelevamientoTable.execute().get();
+                            mRelevamientoTable.read(mPullQuery).get();
                     getActivity().runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -216,7 +195,28 @@ public class RelevamientoFragment extends Fragment {
                         }
                     });
                 } catch (Exception e){
-                    createAndShowDialog(e, "Error");
+                    MessageHelper.createAndShowDialog(getActivity(), e, "Error");
+                }
+
+                return null;
+            }
+        }.execute();
+
+    }
+    private void refreshItemsFromTable() {
+
+        // Get the items that weren't marked as completed and add them in the
+        // adapter
+
+        new AsyncTask<Void, Void, Void>(){
+            @Override
+            protected Void doInBackground(Void... params) {
+                try {
+                    mClient.getClient().getSyncContext().push().get();
+                    mRelevamientoTable.pull(mPullQuery).get();
+                    loadItemsFromTable();
+                } catch (Exception e){
+                    MessageHelper.createAndShowDialog(getActivity(), e, "Error");
                 }
 
                 return null;
@@ -225,26 +225,6 @@ public class RelevamientoFragment extends Fragment {
 
     }
 
-    private void createAndShowDialog(final String message, final String title) {
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                final AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-
-                builder.setMessage(message);
-                builder.setTitle(title);
-                builder.create().show();
-            }
-        });
-
-    }
-    private void createAndShowDialog(Exception exception, String title) {
-        Throwable ex = exception;
-        if(exception.getCause() != null){
-            ex = exception.getCause();
-        }
-        createAndShowDialog(ex.getMessage(), title);
-    }
 
 
 
@@ -304,47 +284,5 @@ public class RelevamientoFragment extends Fragment {
         }
 
     }
-
-    private class ProgressFilter implements ServiceFilter {
-
-        @Override
-        public ListenableFuture<ServiceFilterResponse> handleRequest(ServiceFilterRequest request, NextServiceFilterCallback nextServiceFilterCallback) {
-
-            final SettableFuture<ServiceFilterResponse> resultFuture = SettableFuture.create();
-
-
-            getActivity().runOnUiThread(new Runnable() {
-
-                @Override
-                public void run() {
-                    if (mProgressBar != null) mProgressBar.setVisibility(ProgressBar.VISIBLE);
-                }
-            });
-
-            ListenableFuture<ServiceFilterResponse> future = nextServiceFilterCallback.onNext(request);
-
-            Futures.addCallback(future, new FutureCallback<ServiceFilterResponse>() {
-                @Override
-                public void onFailure(Throwable e) {
-                    resultFuture.setException(e);
-                }
-
-                @Override
-                public void onSuccess(ServiceFilterResponse response) {
-                    getActivity().runOnUiThread(new Runnable() {
-
-                        @Override
-                        public void run() {
-                            if (mProgressBar != null) mProgressBar.setVisibility(ProgressBar.GONE);
-                        }
-                    });
-
-                    resultFuture.set(response);
-                }
-            });
-
-            return resultFuture;
-        }
-    }
-
 }
+

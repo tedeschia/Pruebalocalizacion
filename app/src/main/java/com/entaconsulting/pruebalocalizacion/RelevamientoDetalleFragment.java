@@ -6,22 +6,31 @@ import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
 
+import com.google.gson.Gson;
+import com.microsoft.windowsazure.mobileservices.MobileServiceClient;
+import com.microsoft.windowsazure.mobileservices.table.MobileServiceTable;
+import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
+
+import java.util.Date;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -37,34 +46,31 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class RelevamientoDetalleFragment extends Fragment {
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
     private static final String STATE_DATOS_RELEVAMIENTO = "datosCumplimiento";
+    public static final String ACTION_ADD = "add";
+    public static final String ACTION_MESSAGE = "action";
 
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
+    private String mAction;
 
     private HashMap<String, DatoRelevamiento> mDatosRelevamiento;
     private String[] mCandidatos;
     private String[] mMateriales;
 
     private OnFragmentInteractionListener mListener;
+    private DataHelper mClient;
+    private ProgressFilter mProgressFilter;
 
     /**
      * Use this factory method to create a new instance of
      * this fragment using the provided parameters.
      *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
+     * @param action_message Parameter 2.
      * @return A new instance of fragment RelevamientoFragment.
      */
-    // TODO: Rename and change types and number of parameters
-    public static RelevamientoDetalleFragment newInstance(String param1, String param2) {
+    public static RelevamientoDetalleFragment newInstance(String action_message) {
         RelevamientoDetalleFragment fragment = new RelevamientoDetalleFragment();
         Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
+        args.putString(ACTION_MESSAGE, action_message);
         fragment.setArguments(args);
         return fragment;
     }
@@ -76,9 +82,9 @@ public class RelevamientoDetalleFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+            mAction = getArguments().getString(ACTION_MESSAGE);
         }
         setHasOptionsMenu(true);
 
@@ -89,6 +95,8 @@ public class RelevamientoDetalleFragment extends Fragment {
         }else{
             mDatosRelevamiento = generarDatos();
         }
+        mProgressFilter = new ProgressFilter(getActivity());
+        mClient = new DataHelper(getActivity(),mProgressFilter);
     }
 
     @Override
@@ -127,6 +135,13 @@ public class RelevamientoDetalleFragment extends Fragment {
         View main = inflater.inflate(R.layout.fragment_relevamiento_detalle, container, false);
         TableLayout table = (TableLayout) main.findViewById(R.id.main_table);
 
+        //Setup progress bar
+        View progressBar = container.findViewById(R.id.loadingProgressBar);
+        if(progressBar!=null){
+            mProgressFilter.setProgressBar(progressBar);
+            progressBar.setVisibility(ProgressBar.GONE);
+        }
+
         buildTable(table, inflater, getActivity());
         return main;
     }
@@ -134,6 +149,51 @@ public class RelevamientoDetalleFragment extends Fragment {
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.fragment_relevamiento_detalle_actions, menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+
+        switch(item.getItemId()){
+            case R.id.action_save:
+                guardar();
+                return true;
+            default: return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private void guardar() {
+        if (mClient == null) {
+            MessageHelper.createAndShowDialog(getActivity(), "No se encuentra conectado al servicio de datos","ERROR");
+        }
+
+        final MobileServiceSyncTable<Relevamiento> tableRelevamiento = mClient.getClient().getSyncTable(Relevamiento.class);
+        //MobileServiceTable<Relevamiento> tableRelevamientoDetalle = mClient.getTable(RelevamientoDetalle.class);
+        new AsyncTask<Void, Void, Void>(){
+            @Override
+            protected Void doInBackground(Void... params) {
+                try {
+                    Relevamiento entity = new Relevamiento(new Date());
+                    String json = new Gson().toJson(new String[]{"prueba1", "prueba2"});
+                    entity.setDatos(json);
+                    final Relevamiento relevamiento = tableRelevamiento.insert(entity).get();
+                    close();
+                } catch (Exception e){
+                    MessageHelper.createAndShowDialog(getActivity(), e, "Error");
+                }
+
+                return null;
+            }
+        }.execute();
+
+
+    }
+
+    private void close() {
+        if(mListener!=null){
+            mListener.onItemSaved();
+        }
     }
 
 
@@ -245,7 +305,9 @@ public class RelevamientoDetalleFragment extends Fragment {
      */
     public interface OnFragmentInteractionListener {
         // TODO: Update argument type and name
-        public void onFragmentInteraction(Uri uri);
+        //public void onFragmentInteraction(Uri uri);
+
+        void onItemSaved();
     }
 
     public class GradoCumplimientoAdapter extends ArrayAdapter<Integer> {

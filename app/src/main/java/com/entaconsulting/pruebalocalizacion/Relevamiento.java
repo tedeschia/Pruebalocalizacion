@@ -11,6 +11,8 @@ public class Relevamiento {
     private String mId;
     @com.google.gson.annotations.SerializedName("fecha")
     private Date mFecha;
+    @com.google.gson.annotations.SerializedName("datos")
+    private String mDatos;
 
     public Relevamiento(){
 
@@ -39,5 +41,13 @@ public class Relevamiento {
 
     public void setFecha(Date mFecha) {
         this.mFecha = mFecha;
+    }
+
+    public String getDatos() {
+        return mDatos;
+    }
+
+    public void setDatos(String mDatos) {
+        this.mDatos = mDatos;
     }
 }
