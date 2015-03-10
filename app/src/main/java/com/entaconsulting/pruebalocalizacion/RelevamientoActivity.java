@@ -1,93 +1,92 @@
 package com.entaconsulting.pruebalocalizacion;
 
+import android.content.Context;
 import android.content.Intent;
+import android.location.Criteria;
+import android.location.Location;
+import android.location.LocationManager;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.ResultReceiver;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.app.FragmentTransaction;
-import android.support.v4.app.NavUtils;
 import android.support.v4.view.ViewPager;
 import android.os.Bundle;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.ActionBarActivity;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.View;
-import android.widget.EditText;
+
+import com.google.android.gms.location.LocationServices;
 
 import java.security.InvalidParameterException;
 
 
 public class RelevamientoActivity extends ActionBarActivity
-        implements RelevamientoDetalleFragment.OnFragmentInteractionListener,
-        RelevamientoFragment.OnFragmentInteractionListener
+        implements RelevamientoFragment.OnFragmentInteractionListener,
+        GooglePlayServicesHelper.OnConnectedCallback
 {
     static final int NUM_ITEMS = 1;
     private static final String TAG = "RelevamientoActivity";
+    private GooglePlayServicesHelper mGooglePlayServices;
+    private Location mLastKnownLocation;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        setContentView(R.layout.activity_relevamiento);
-
-        initViewPager();
-
-    }
-
-    private void initActionBar() {
-    }
-
-    private void initViewPager() {
-        ViewPagerAdapter adapter = new ViewPagerAdapter(getSupportFragmentManager());
-
-        final ViewPager pager = (ViewPager)findViewById(R.id.pager);
-        pager.setAdapter(adapter);
-
-        pager.setOnPageChangeListener(
-                new ViewPager.SimpleOnPageChangeListener() {
-                    @Override
-                    public void onPageSelected(int position) {
-                        // When swiping between pages, select the
-                        // corresponding tab.
-                        getSupportActionBar().setSelectedNavigationItem(position);
-                    }
-                });
-
-        final ActionBar actionBar = getSupportActionBar();
-        // Specify that tabs should be displayed in the action bar.
-        actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
-
-        // Create a tab listener that is called when the user changes tabs.
-        ActionBar.TabListener tabListener = new ActionBar.TabListener() {
-            @Override
-            public void onTabSelected(ActionBar.Tab tab, FragmentTransaction ft) {
-                // When the tab is selected, switch to the
-                // corresponding page in the ViewPager.
-                pager.setCurrentItem(tab.getPosition());
-            }
-
-            @Override
-            public void onTabUnselected(ActionBar.Tab tab, FragmentTransaction ft) {
-
-            }
-
-            public void onTabReselected(ActionBar.Tab tab, FragmentTransaction ft) {
-                // probably ignore this event
-            }
-
-        };
-
-        // Add 3 tabs, specifying the tab's text and TabListener
-        for (int i = 0; i < NUM_ITEMS; i++) {
-            actionBar.addTab(
-                    actionBar.newTab()
-                            .setText("Tab " + (i + 1))
-                            .setTabListener(tabListener));
+        if(mGooglePlayServices==null){
+            mGooglePlayServices = new GooglePlayServicesHelper(this);
         }
 
+        if (savedInstanceState != null) {
+            mGooglePlayServices.setIsInResolution(savedInstanceState.getBoolean(GooglePlayServicesHelper.KEY_IN_RESOLUTION, false));
+        }
+
+        setContentView(R.layout.activity_relevamiento);
+
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(GooglePlayServicesHelper.KEY_IN_RESOLUTION, mGooglePlayServices.getIsInResolution());
+    }
+
+    @Override
+    protected void onStart(){
+        super.onStart();
+        mGooglePlayServices.start();
+    }
+    @Override
+    protected void onStop(){
+        super.onStop();
+        mGooglePlayServices.stop();
+    }
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        switch(requestCode){
+            case RelevamientoDetalleActivity.REQUEST_ADD:
+                if(resultCode == RESULT_OK){
+                    Relevamiento relevamiento = (Relevamiento)data.getSerializableExtra(RelevamientoDetalleActivity.EXTRA_RELEVAMIENTO);
+                    addRelevamientoResult(relevamiento);
+                }
+                break;
+            default:
+                mGooglePlayServices.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    private void addRelevamientoResult(Relevamiento relevamiento) {
+        RelevamientoFragment fragment = (RelevamientoFragment)getSupportFragmentManager().findFragmentById(R.id.detalle_relevamiento_fragment);
+        if(fragment!=null){
+            fragment.addItem(relevamiento);
+        }
     }
 
     @Override
@@ -109,42 +108,57 @@ public class RelevamientoActivity extends ActionBarActivity
     }
 
     public void addRelevamiento() {
+        Location location = getLastKnownLocation();
+        if(location == null){
+            MessageHelper.createAndShowDialog(this, "No se ha podido obtener la localización, no se pueden registrar datos sin la posición geográfica","Error");
+            return;
+        }
+
         Intent intent = new Intent(this, RelevamientoDetalleActivity.class);
-        String message = RelevamientoDetalleFragment.ACTION_ADD;
-        intent.putExtra(RelevamientoDetalleFragment.ACTION_MESSAGE, message);
+        intent.putExtra(RelevamientoDetalleFragment.ARG_ACTION_MESSAGE, RelevamientoDetalleFragment.ARG_ACTION_ADD);
+        intent.putExtra(RelevamientoDetalleFragment.ARG_LOCALIZACION, location);
+        startActivityForResult(intent, RelevamientoDetalleActivity.REQUEST_ADD);
+    }
+    public void editRelevamiento(String relevamientoId){
+        Intent intent = new Intent(this, RelevamientoDetalleActivity.class);
+        intent.putExtra(RelevamientoDetalleFragment.ARG_ACTION_MESSAGE, RelevamientoDetalleFragment.ARG_ACTION_EDIT);
+        intent.putExtra(RelevamientoDetalleFragment.ARG_RELEVAMIENTO_ID, relevamientoId);
         startActivity(intent);
     }
 
     @Override
-    public void onFragmentInteraction(Uri uri) {
-
+    public void onConnected() {
     }
 
     @Override
-    public void onItemSaved() {
+    public Location getLastKnownLocation() {
+
+        Location location = LocationServices.FusedLocationApi.getLastLocation(mGooglePlayServices.getClient());
+        if (location != null) {
+            mLastKnownLocation = location;
+        }
+        return mLastKnownLocation;
     }
 
-    public static class ViewPagerAdapter extends FragmentPagerAdapter {
-        public ViewPagerAdapter(FragmentManager fm) {
-            super(fm);
+    class AddressResultReceiver extends ResultReceiver {
+        private String mAddressOutput;
+
+        public AddressResultReceiver(Handler handler) {
+            super(handler);
         }
 
         @Override
-        public int getCount() {
-            return NUM_ITEMS;
-        }
+        protected void onReceiveResult(int resultCode, Bundle resultData) {
 
-        @Override
-        public Fragment getItem(int position) {
-            Fragment result;
-            switch(position){
-                case 0:
-                    result = RelevamientoFragment.newInstance("", "");
-                    break;
-                default:
-                    throw new InvalidParameterException("position sin fragment definido");
+            // Display the address string
+            // or an error message sent from the intent service.
+            mAddressOutput = resultData.getString(FetchAdressIntentService.Constants.RESULT_DATA_KEY);
+
+            // Show a toast message if an address was found.
+            if (resultCode == FetchAdressIntentService.Constants.SUCCESS_RESULT) {
+                MessageHelper.createAndShowDialog(getParent(),mAddressOutput,"Direccion");
             }
-            return result;
+
         }
     }
 }

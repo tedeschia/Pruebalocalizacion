@@ -5,7 +5,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Color;
-import android.net.Uri;
+import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
@@ -26,8 +26,6 @@ import android.widget.TableRow;
 import android.widget.TextView;
 
 import com.google.gson.Gson;
-import com.microsoft.windowsazure.mobileservices.MobileServiceClient;
-import com.microsoft.windowsazure.mobileservices.table.MobileServiceTable;
 import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
 
 import java.util.Date;
@@ -44,33 +42,40 @@ import java.util.concurrent.atomic.AtomicInteger;
  * create an instance of this fragment.
  */
 public class RelevamientoDetalleFragment extends Fragment {
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String STATE_DATOS_RELEVAMIENTO = "datosCumplimiento";
-    public static final String ACTION_ADD = "add";
-    public static final String ACTION_MESSAGE = "action";
+    private static final String STATE_DATOS_RELEVAMIENTO = "datosRelevamiento";
+
+    public static final String ARG_ACTION_ADD = "add";
+    public static final String ARG_ACTION_EDIT = "edit";
+    public static final String ARG_ACTION_MESSAGE = "action";
+    public static final String ARG_RELEVAMIENTO_ID = "relevamiento_id";
+    public static final String ARG_LOCALIZACION = "localizacion";
 
     private String mAction;
 
-    private HashMap<String, DatoRelevamiento> mDatosRelevamiento;
+    private HashMap<String, DatoRelevamientoPublicidad> mDatosRelevamiento;
     private String[] mCandidatos;
     private String[] mMateriales;
 
     private OnFragmentInteractionListener mListener;
     private DataHelper mClient;
     private ProgressFilter mProgressFilter;
+    private String mRelevamientoId;
+    private Location mLocalizacion;
 
     /**
      * Use this factory method to create a new instance of
      * this fragment using the provided parameters.
      *
      * @param action_message Parameter 2.
+     * @param localizacion
      * @return A new instance of fragment RelevamientoFragment.
      */
-    public static RelevamientoDetalleFragment newInstance(String action_message) {
+    public static RelevamientoDetalleFragment newInstance(String action_message, String relevamiento_id, Location localizacion) {
         RelevamientoDetalleFragment fragment = new RelevamientoDetalleFragment();
         Bundle args = new Bundle();
-        args.putString(ACTION_MESSAGE, action_message);
+        args.putString(ARG_ACTION_MESSAGE, action_message);
+        args.putString(ARG_RELEVAMIENTO_ID, relevamiento_id);
+        args.putParcelable(ARG_LOCALIZACION, localizacion);
         fragment.setArguments(args);
         return fragment;
     }
@@ -84,16 +89,18 @@ public class RelevamientoDetalleFragment extends Fragment {
         super.onCreate(savedInstanceState);
 
         if (getArguments() != null) {
-            mAction = getArguments().getString(ACTION_MESSAGE);
+            mAction = getArguments().getString(ARG_ACTION_MESSAGE);
+            mRelevamientoId = getArguments().getString(ARG_RELEVAMIENTO_ID);
+            mLocalizacion = getArguments().getParcelable(ARG_LOCALIZACION);
         }
         setHasOptionsMenu(true);
 
         leerConfiguracion();
 
         if(savedInstanceState!=null){
-            mDatosRelevamiento = (HashMap<String, DatoRelevamiento>)savedInstanceState.getSerializable(STATE_DATOS_RELEVAMIENTO);
+            mDatosRelevamiento = datosBdAVista((DatoRelevamientoPublicidad[]) savedInstanceState.getSerializable(STATE_DATOS_RELEVAMIENTO));
         }else{
-            mDatosRelevamiento = generarDatos();
+            mDatosRelevamiento = datosBdAVista(null);
         }
         mProgressFilter = new ProgressFilter(getActivity());
         mClient = new DataHelper(getActivity(),mProgressFilter);
@@ -102,17 +109,28 @@ public class RelevamientoDetalleFragment extends Fragment {
     @Override
     public void onSaveInstanceState(Bundle savedInstanceState) {
         // Save the user's current game state
-        savedInstanceState.putSerializable(STATE_DATOS_RELEVAMIENTO, mDatosRelevamiento);
+        savedInstanceState.putSerializable(STATE_DATOS_RELEVAMIENTO, datosVistaABd());
 
         // Always call the superclass so it can save the view hierarchy state
         super.onSaveInstanceState(savedInstanceState);
     }
 
-    private HashMap<String, DatoRelevamiento> generarDatos() {
-        HashMap<String, DatoRelevamiento> datos = new HashMap<>();
-        for (String mMaterial : mMateriales) {
-            for (String mCandidato : mCandidatos) {
-                DatoRelevamiento dato = new DatoRelevamiento(mCandidato, mMaterial, 0, "");
+    private DatoRelevamientoPublicidad[] datosVistaABd() {
+        DatoRelevamientoPublicidad[] result = new DatoRelevamientoPublicidad[mDatosRelevamiento.values().size()];
+        return mDatosRelevamiento.values().toArray(result);
+    }
+
+    private HashMap<String, DatoRelevamientoPublicidad> datosBdAVista(DatoRelevamientoPublicidad[] datosIniciales) {
+        HashMap<String, DatoRelevamientoPublicidad> datos = new HashMap<>();
+        if(datosIniciales==null) {
+            for (String mMaterial : mMateriales) {
+                for (String mCandidato : mCandidatos) {
+                    DatoRelevamientoPublicidad dato = new DatoRelevamientoPublicidad(mCandidato, mMaterial, 0);
+                    datos.put(getKey(dato.getCandidato(), dato.getMaterial()), dato);
+                }
+            }
+        }else{
+            for(DatoRelevamientoPublicidad dato:datosIniciales){
                 datos.put(getKey(dato.getCandidato(), dato.getMaterial()), dato);
             }
         }
@@ -175,10 +193,17 @@ public class RelevamientoDetalleFragment extends Fragment {
             protected Void doInBackground(Void... params) {
                 try {
                     Relevamiento entity = new Relevamiento(new Date());
-                    String json = new Gson().toJson(new String[]{"prueba1", "prueba2"});
+                    String json = new Gson().toJson(datosVistaABd());
                     entity.setDatos(json);
+                    entity.setLatitud(mLocalizacion.getLatitude());
+                    entity.setLongitud(mLocalizacion.getLongitude());
+
                     final Relevamiento relevamiento = tableRelevamiento.insert(entity).get();
-                    close();
+
+                    if(mListener!=null){
+                        mListener.onItemSaved(relevamiento);
+                    }
+
                 } catch (Exception e){
                     MessageHelper.createAndShowDialog(getActivity(), e, "Error");
                 }
@@ -191,9 +216,6 @@ public class RelevamientoDetalleFragment extends Fragment {
     }
 
     private void close() {
-        if(mListener!=null){
-            mListener.onItemSaved();
-        }
     }
 
 
@@ -229,19 +251,19 @@ public class RelevamientoDetalleFragment extends Fragment {
 
         tableRowParams = new TableRow.LayoutParams();
         //tableRowParams.weight=1;
-        for (String mMateriale : mMateriales) {
+        for (String materiale : mMateriales) {
             tableRow = (TableRow) inflater.inflate(R.layout.table_row_relevamiento, tableLayout, false);
 
             rowHeaderText = new TextView(context);
             rowHeaderText.setId(ViewId.getInstance().getUniqueId());
             rowHeaderText.setGravity(Gravity.LEFT);
-            rowHeaderText.setText(mMateriale);
+            rowHeaderText.setText(materiale);
 
             tableRow.addView(rowHeaderText);
 
             for (int j = 0; j < mCandidatos.length; j++) {
 
-                DatoRelevamiento dato = mDatosRelevamiento.get(getKey(mCandidatos[j], mMateriale));
+                DatoRelevamientoPublicidad dato = mDatosRelevamiento.get(getKey(mCandidatos[j], materiale));
                 View spinner = crearSpinner(context, candidatosColores.getColor(j, 0), gradosCumplimiento, dato);
 
                 tableRow.addView(spinner, tableRowParams);
@@ -251,7 +273,7 @@ public class RelevamientoDetalleFragment extends Fragment {
         }
     }
 
-    private View crearSpinner(Context context, int color, Integer[] gradosCumplimiento, final DatoRelevamiento dato) {
+    private View crearSpinner(Context context, int color, Integer[] gradosCumplimiento, final DatoRelevamientoPublicidad dato) {
         Spinner spinner = new Spinner(context);
         spinner.setId(ViewId.getInstance().getUniqueId());
 
@@ -304,10 +326,7 @@ public class RelevamientoDetalleFragment extends Fragment {
      * >Communicating with Other Fragments</a> for more information.
      */
     public interface OnFragmentInteractionListener {
-        // TODO: Update argument type and name
-        //public void onFragmentInteraction(Uri uri);
-
-        void onItemSaved();
+        void onItemSaved(Relevamiento relevamiento);
     }
 
     public class GradoCumplimientoAdapter extends ArrayAdapter<Integer> {

@@ -1,6 +1,7 @@
 package com.entaconsulting.pruebalocalizacion;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnCancelListener;
 import android.content.Intent;
@@ -14,13 +15,13 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationServices;
 
 
-public class GooglePlayServicesActivity extends Activity implements
+public class GooglePlayServicesHelper implements
         GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener {
 
     private static final String TAG = "GooglePlayServicesActivity";
 
-    private static final String KEY_IN_RESOLUTION = "is_in_resolution";
+    public static final String KEY_IN_RESOLUTION = "is_in_resolution";
 
     /**
      * Request code for auto Google Play Services error resolution.
@@ -32,36 +33,32 @@ public class GooglePlayServicesActivity extends Activity implements
      */
     private GoogleApiClient mGoogleApiClient;
 
-    /**
-     * Determines if the client is in a resolution state, and
-     * waiting for resolution intent to return.
-     */
     private boolean mIsInResolution;
 
-    /**
-     * Called when the activity is starting. Restores the activity state.
-     */
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        Log.i(TAG,"Activity Created!");
-        if (savedInstanceState != null) {
-            mIsInResolution = savedInstanceState.getBoolean(KEY_IN_RESOLUTION, false);
+    private Activity mActivity;
+    private OnConnectedCallback mListener;
+
+    public GooglePlayServicesHelper(Activity activity){
+        mActivity = activity;
+        try {
+            mListener = (OnConnectedCallback) activity;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(activity.toString()
+                    + " must implement OnConnectedCallback");
         }
+
     }
 
     /**
-     * Called when the Activity is made visible.
+     * Llamar en "onStart"
      * A connection to Play Services need to be initiated as
      * soon as the activity is visible. Registers {@code ConnectionCallbacks}
      * and {@code OnConnectionFailedListener} on the
      * activities itself.
      */
-    @Override
-    protected void onStart() {
-        super.onStart();
+    public void start() {
         if (mGoogleApiClient == null) {
-            mGoogleApiClient = new GoogleApiClient.Builder(this)
+            mGoogleApiClient = new GoogleApiClient.Builder(mActivity)
                     // Optionally, add additional APIs and scopes if required.
                     .addConnectionCallbacks(this)
                     .addOnConnectionFailedListener(this)
@@ -69,37 +66,22 @@ public class GooglePlayServicesActivity extends Activity implements
                     .build();
         }
         mGoogleApiClient.connect();
-        Log.i(TAG,"Activity Started!");
-
     }
 
     /**
      * Called when activity gets invisible. Connection to Play Services needs to
      * be disconnected as soon as an activity is invisible.
      */
-    @Override
-    protected void onStop() {
+    protected void stop() {
         if (mGoogleApiClient != null) {
             mGoogleApiClient.disconnect();
         }
-        super.onStop();
-    }
-
-    /**
-     * Saves the resolution state.
-     */
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        outState.putBoolean(KEY_IN_RESOLUTION, mIsInResolution);
     }
 
     /**
      * Handles Google Play Services resolution callbacks.
      */
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
             case REQUEST_CODE_RESOLUTION:
                 retryConnecting();
@@ -108,7 +90,7 @@ public class GooglePlayServicesActivity extends Activity implements
     }
 
     private void retryConnecting() {
-        mIsInResolution = false;
+        setIsInResolution(false);
         if (!mGoogleApiClient.isConnecting()) {
             mGoogleApiClient.connect();
         }
@@ -119,8 +101,15 @@ public class GooglePlayServicesActivity extends Activity implements
      */
     @Override
     public void onConnected(Bundle connectionHint) {
-        Log.i(TAG, "GoogleApiClient connected");
-        // TODO: Start making API requests.
+        mListener.onConnected();
+    }
+
+    public GoogleApiClient getClient() {
+        return mGoogleApiClient;
+    }
+
+    public interface OnConnectedCallback{
+        public void onConnected();
     }
 
     /**
@@ -139,11 +128,10 @@ public class GooglePlayServicesActivity extends Activity implements
      */
     @Override
     public void onConnectionFailed(ConnectionResult result) {
-        Log.i(TAG, "GoogleApiClient connection failed: " + result.toString());
         if (!result.hasResolution()) {
             // Show a localized error dialog.
             GooglePlayServicesUtil.getErrorDialog(
-                    result.getErrorCode(), this, 0, new OnCancelListener() {
+                    result.getErrorCode(), mActivity, 0, new OnCancelListener() {
                         @Override
                         public void onCancel(DialogInterface dialog) {
                             retryConnecting();
@@ -154,15 +142,27 @@ public class GooglePlayServicesActivity extends Activity implements
         // If there is an existing resolution error being displayed or a resolution
         // activity has started before, do nothing and wait for resolution
         // progress to be completed.
-        if (mIsInResolution) {
+        if (getIsInResolution()) {
             return;
         }
-        mIsInResolution = true;
+        setIsInResolution(true);
         try {
-            result.startResolutionForResult(this, REQUEST_CODE_RESOLUTION);
+            result.startResolutionForResult(mActivity, REQUEST_CODE_RESOLUTION);
         } catch (SendIntentException e) {
             Log.e(TAG, "Exception while starting resolution activity", e);
             retryConnecting();
         }
+    }
+
+    /**
+     * Determines if the client is in a resolution state, and
+     * waiting for resolution intent to return.
+     */
+    public boolean getIsInResolution() {
+        return mIsInResolution;
+    }
+
+    public void setIsInResolution(boolean mIsInResolution) {
+        this.mIsInResolution = mIsInResolution;
     }
 }

@@ -2,6 +2,7 @@ package com.entaconsulting.pruebalocalizacion;
 
 import android.app.Activity;
 import android.content.Context;
+import android.location.Location;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -18,6 +19,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import com.microsoft.windowsazure.mobileservices.MobileServiceClient;
 import com.microsoft.windowsazure.mobileservices.table.query.Query;
+import com.microsoft.windowsazure.mobileservices.table.query.QueryOrder;
 import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
 import java.util.List;
 
@@ -123,7 +125,9 @@ public class RelevamientoFragment extends Fragment {
         // Mobile Service URL and key
         // Get the Mobile Service Table instance to use
         mRelevamientoTable = mClient.getClient().getSyncTable(Relevamiento.class);
-        mPullQuery = mClient.getClient().getTable(Relevamiento.class).where();
+        mPullQuery = mClient.getClient().getTable(Relevamiento.class)
+                .orderBy("fecha", QueryOrder.Descending)
+                .top(1000);
 
         // Create an adapter to bind the items with the view
         mAdapter = new RelevamientoAdapter(context, R.layout.row_list_relevamiento);
@@ -146,14 +150,6 @@ public class RelevamientoFragment extends Fragment {
         }
 
         return true;
-    }
-
-
-    // TODO: Rename method, update argument and hook method into UI event
-    public void onButtonPressed(Uri uri) {
-        if (mListener != null) {
-            mListener.onFragmentInteraction(uri);
-        }
     }
 
     @Override
@@ -225,7 +221,9 @@ public class RelevamientoFragment extends Fragment {
 
     }
 
-
+    public void addItem(Relevamiento relevamiento) {
+        mAdapter.insert(relevamiento, 0);
+    }
 
 
     /**
@@ -239,8 +237,8 @@ public class RelevamientoFragment extends Fragment {
      * >Communicating with Other Fragments</a> for more information.
      */
     public interface OnFragmentInteractionListener {
-        // TODO: Update argument type and name
-        public void onFragmentInteraction(Uri uri);
+        public Location getLastKnownLocation();
+
     }
 
     public class RelevamientoAdapter extends ArrayAdapter<Relevamiento> {

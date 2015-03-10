@@ -54,6 +54,8 @@ public class DataHelper {
         tableDefinition.put("id", ColumnDataType.String);
         tableDefinition.put("fecha", ColumnDataType.Date);
         tableDefinition.put("datos", ColumnDataType.String);
+        tableDefinition.put("latitud", ColumnDataType.Real);
+        tableDefinition.put("longitud", ColumnDataType.Real);
 
         localStore.defineTable("Relevamiento", tableDefinition);
         mSyncContext.initialize(localStore, handler).get();

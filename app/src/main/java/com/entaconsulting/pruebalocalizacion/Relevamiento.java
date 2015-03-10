@@ -3,9 +3,10 @@ package com.entaconsulting.pruebalocalizacion;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import java.io.Serializable;
 import java.util.Date;
 
-public class Relevamiento {
+public class Relevamiento implements Serializable {
 
     @com.google.gson.annotations.SerializedName("id")
     private String mId;
@@ -13,6 +14,15 @@ public class Relevamiento {
     private Date mFecha;
     @com.google.gson.annotations.SerializedName("datos")
     private String mDatos;
+    @com.google.gson.annotations.SerializedName("latitud")
+    private double mLatitud;
+    @com.google.gson.annotations.SerializedName("longitud")
+    private double mLongitud;
+    @com.google.gson.annotations.SerializedName("direccionEstado")
+    private String mDireccionEstado;
+    @com.google.gson.annotations.SerializedName("direccion")
+    private String mDireccion;
+
 
     public Relevamiento(){
 
@@ -49,5 +59,28 @@ public class Relevamiento {
 
     public void setDatos(String mDatos) {
         this.mDatos = mDatos;
+    }
+
+    public double getLatitud() {
+        return mLatitud;
+    }
+
+    public void setLatitud(double mLatitud) {
+        this.mLatitud = mLatitud;
+    }
+
+    public double getLongitud() {
+        return mLongitud;
+    }
+
+    public void setLongitud(double mLongitud) {
+        this.mLongitud = mLongitud;
+    }
+
+    public class EstadosDireccion{
+        public static final String Pendiente = "pendiente";
+        public static final String Resuelta = "resuelta";
+        public static final String NoEncontrada = "noEncontrada";
+        public static final String MultiplesCandidatos = "multiplesCandidatos";
     }
 }

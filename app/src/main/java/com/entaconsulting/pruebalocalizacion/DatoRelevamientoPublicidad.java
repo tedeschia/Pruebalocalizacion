@@ -3,10 +3,8 @@ package com.entaconsulting.pruebalocalizacion;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-public class DatoRelevamiento implements Parcelable {
+public class DatoRelevamientoPublicidad implements Parcelable {
 
-    @com.google.gson.annotations.SerializedName("id")
-    private String mId;
     @com.google.gson.annotations.SerializedName("candidato")
     private String mCandidato;
     @com.google.gson.annotations.SerializedName("material")
@@ -14,11 +12,10 @@ public class DatoRelevamiento implements Parcelable {
     @com.google.gson.annotations.SerializedName("cumplimiento")
     private int mCumplimiento;
 
-    public DatoRelevamiento(){
+    public DatoRelevamientoPublicidad(){
 
     }
-    public DatoRelevamiento(String candidato, String material, int cumplimiento, String id) {
-        this.setId(id);
+    public DatoRelevamientoPublicidad(String candidato, String material, int cumplimiento) {
         setCandidato(candidato);
         setMaterial(material);
         setCumplimiento(cumplimiento);
@@ -61,17 +58,9 @@ public class DatoRelevamiento implements Parcelable {
         this.mCumplimiento = mCumplimiento;
     }
 
-    public String getId() {
-        return mId;
-    }
-
-    public void setId(String mId) {
-        this.mId = mId;
-    }
-
     @Override
     public boolean equals(Object o) {
-        return o instanceof DatoRelevamiento && ((DatoRelevamiento) o).mId == mId;
+        return o instanceof DatoRelevamientoPublicidad && ((DatoRelevamientoPublicidad) o).mCandidato == mCandidato;
     }
 
 

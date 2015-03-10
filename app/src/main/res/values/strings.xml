@@ -16,4 +16,8 @@
     <string name="action_nuevo">Nuevo</string>
     <string name="action_refresh">Actualizar</string>
     <string name="title_activity_relevamiento_detalle">RelevamientoDetalleActivity</string>
+    <string name="service_not_available">Servicio de geocodificación no disponible</string>
+    <string name="invalid_lat_long_used">Latitud/Longitud inválidos</string>
+    <string name="no_address_found">No se ha encontrado ninguna dirección para la coordenada</string>
+    <string name="address_found">Dirección encontrada</string>
 </resources>
