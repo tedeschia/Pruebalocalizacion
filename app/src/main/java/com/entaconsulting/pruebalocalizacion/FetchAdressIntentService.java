@@ -23,6 +23,9 @@ public class FetchAdressIntentService extends IntentService {
 
     protected ResultReceiver mReceiver;
 
+    public FetchAdressIntentService(){
+        super(TAG);
+    }
     /**
      * Creates an IntentService.  Invoked by your subclass's constructor.
      *
@@ -37,8 +40,9 @@ public class FetchAdressIntentService extends IntentService {
         String errorMessage = "";
 
         // Get the location passed to this service through an extra.
-        Location location = intent.getParcelableExtra(
-                Constants.LOCATION_DATA_EXTRA);
+        double lat = intent.getDoubleExtra(Constants.LOCATION_LAT_DATA_EXTRA,0);
+        double lon = intent.getDoubleExtra(Constants.LOCATION_LON_DATA_EXTRA,0);
+        mReceiver = intent.getParcelableExtra(Constants.RECEIVER);
 
         Geocoder geocoder = new Geocoder(this, Locale.getDefault());
 
@@ -46,8 +50,8 @@ public class FetchAdressIntentService extends IntentService {
 
         try {
             addresses = geocoder.getFromLocation(
-                    location.getLatitude(),
-                    location.getLongitude(),
+                    lat,
+                    lon,
                     // In this sample, get just a single address.
                     1);
         } catch (IOException ioException) {
@@ -58,9 +62,8 @@ public class FetchAdressIntentService extends IntentService {
             // Catch invalid latitude or longitude values.
             errorMessage = getString(R.string.invalid_lat_long_used);
             Log.e(TAG, errorMessage + ". " +
-                    "Latitude = " + location.getLatitude() +
-                    ", Longitude = " +
-                    location.getLongitude(), illegalArgumentException);
+                    "Latitude = " + lat +
+                    ", Longitude = " + lon, illegalArgumentException);
         }
 
         // Handle case where no address was found.
@@ -100,7 +103,9 @@ public class FetchAdressIntentService extends IntentService {
         public static final String RECEIVER = PACKAGE_NAME + ".RECEIVER";
         public static final String RESULT_DATA_KEY = PACKAGE_NAME +
                 ".RESULT_DATA_KEY";
-        public static final String LOCATION_DATA_EXTRA = PACKAGE_NAME +
-                ".LOCATION_DATA_EXTRA";
+        public static final String LOCATION_LAT_DATA_EXTRA = PACKAGE_NAME +
+                ".LOCATION_LAT_DATA_EXTRA";
+        public static final String LOCATION_LON_DATA_EXTRA = PACKAGE_NAME +
+                ".LOCATION__LON_DATA_EXTRA";
     }
 }

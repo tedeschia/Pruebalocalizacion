@@ -2,11 +2,15 @@ package com.entaconsulting.pruebalocalizacion;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.location.Location;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.ResultReceiver;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -17,6 +21,8 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+
+import com.google.common.base.Optional;
 import com.microsoft.windowsazure.mobileservices.MobileServiceClient;
 import com.microsoft.windowsazure.mobileservices.table.query.Query;
 import com.microsoft.windowsazure.mobileservices.table.query.QueryOrder;
@@ -39,6 +45,7 @@ public class RelevamientoFragment extends Fragment {
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
+    private static final String TAG = "RelevamientoFragment";
 
     // TODO: Rename and change types of parameters
     private String mParam1;
@@ -65,6 +72,11 @@ public class RelevamientoFragment extends Fragment {
 
     private OnFragmentInteractionListener mListener;
     private ProgressFilter mProgressFilter;
+
+    /**
+     * Receiver registered with this activity to get the response from FetchAddressIntentService.
+     */
+    private AddressResultReceiver mResultReceiver;
 
     /**
      * Use this factory method to create a new instance of
@@ -221,9 +233,73 @@ public class RelevamientoFragment extends Fragment {
 
     }
 
-    public void addItem(Relevamiento relevamiento) {
-        mAdapter.insert(relevamiento, 0);
+    public void addItem(final Relevamiento relevamiento) {
+        if (mClient == null) {
+            MessageHelper.createAndShowDialog(getActivity(), "No se encuentra conectado al servicio de datos","ERROR");
+        }
+
+        //la dirección está pendiente hasta que se resuelva
+        relevamiento.setDireccionEstado(Relevamiento.EstadosDireccion.Pendiente);
+
+        final MobileServiceSyncTable<Relevamiento> tableRelevamiento = mClient.getClient().getSyncTable(Relevamiento.class);
+        new AsyncTask<Void, Void, Void>(){
+            @Override
+            protected Void doInBackground(Void... params) {
+                try {
+                    final Relevamiento entity = tableRelevamiento.insert(relevamiento).get();
+                    getActivity().runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mAdapter.insert(entity, 0);
+                            buscarDireccion(entity);
+                        }
+                    });
+                }catch (Exception e){
+                    MessageHelper.createAndShowDialog(getActivity(), e, "Error");
+                }
+
+                return null;
+            }
+        }.execute();
     }
+
+    public void updateItem(final Relevamiento relevamiento){
+        final MobileServiceSyncTable<Relevamiento> tableRelevamiento = mClient.getClient().getSyncTable(Relevamiento.class);
+        new AsyncTask<Void, Void, Void>(){
+            @Override
+            protected Void doInBackground(Void... params) {
+                try {
+                    tableRelevamiento.update(relevamiento).get();
+                }catch (Exception e){
+                    MessageHelper.createAndShowDialog(getActivity(), e, "Error");
+                }
+
+                return null;
+            }
+        }.execute();
+
+        mAdapter.notifyDataSetChanged();
+    }
+
+    private void buscarDireccion(Relevamiento relevamiento) {
+
+        // Create an intent for passing to the intent service responsible for fetching the address.
+        Intent intent = new Intent(getActivity(), FetchAdressIntentService.class);
+
+        AddressResultReceiver resultReceiver = new AddressResultReceiver(new Handler(), relevamiento);
+        // Pass the result receiver as an extra to the service.
+        intent.putExtra(FetchAdressIntentService.Constants.RECEIVER, resultReceiver);
+
+        // Pass the location data as an extra to the service.
+        intent.putExtra(FetchAdressIntentService.Constants.LOCATION_LAT_DATA_EXTRA, relevamiento.getLatitud());
+        intent.putExtra(FetchAdressIntentService.Constants.LOCATION_LON_DATA_EXTRA, relevamiento.getLongitud());
+
+        // Start the service. If the service isn't already running, it is instantiated and started
+        // (creating a process for it if needed); if it is running then it remains running. The
+        // service kills itself automatically once all intents are processed.
+        getActivity().startService(intent);
+    }
+
 
 
     /**
@@ -278,9 +354,57 @@ public class RelevamientoFragment extends Fragment {
             final TextView textDate = (TextView) row.findViewById(R.id.relevamiento_date);
             textDate.setText(currentItem.getFecha().toString());
 
+            final TextView textAddress = (TextView) row.findViewById(R.id.relevamiento_address);
+            String addressText;
+            switch(Optional.fromNullable(currentItem.getDireccionEstado()).or("")){
+                case Relevamiento.EstadosDireccion.MultiplesCandidatos:
+                    addressText = mContext.getString(R.string.direccion_estado_multiples_candidatos);
+                    break;
+                case Relevamiento.EstadosDireccion.NoEncontrada:
+                    addressText = mContext.getString(R.string.direccion_estado_no_encontrada);
+                    break;
+                case Relevamiento.EstadosDireccion.Resuelta:
+                    addressText = currentItem.getDireccion();
+                    break;
+                default:
+                    addressText = mContext.getString(R.string.direccion_estado_pendiente);
+            }
+            textAddress.setText(addressText);
+
             return row;
         }
 
+    }
+
+    /**
+     * Receiver for data sent from FetchAddressIntentService.
+     */
+    class AddressResultReceiver extends ResultReceiver {
+
+        private final Relevamiento mRelevamiento;
+
+        public AddressResultReceiver(Handler handler, Relevamiento relevamiento) {
+            super(handler);
+            mRelevamiento = relevamiento;
+        }
+
+        /**
+         *  Receives data sent from FetchAddressIntentService and updates the UI in MainActivity.
+         */
+        @Override
+        protected void onReceiveResult(int resultCode, Bundle resultData) {
+
+            // Display the address string or an error message sent from the intent service.
+            String addressOutput = resultData.getString(FetchAdressIntentService.Constants.RESULT_DATA_KEY);
+
+            // Show a toast message if an address was found.
+            if (resultCode == FetchAdressIntentService.Constants.SUCCESS_RESULT) {
+                mRelevamiento.setDireccionEstado(Relevamiento.EstadosDireccion.Resuelta);
+                mRelevamiento.setDireccion(addressOutput);
+                updateItem(mRelevamiento);
+            }
+
+        }
     }
 }
 

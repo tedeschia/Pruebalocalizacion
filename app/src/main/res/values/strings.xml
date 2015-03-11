@@ -20,4 +20,7 @@
     <string name="invalid_lat_long_used">Latitud/Longitud inválidos</string>
     <string name="no_address_found">No se ha encontrado ninguna dirección para la coordenada</string>
     <string name="address_found">Dirección encontrada</string>
+    <string name="direccion_estado_multiples_candidatos">Más de una dirección</string>
+    <string name="direccion_estado_no_encontrada">Direccion no encontrada</string>
+    <string name="direccion_estado_pendiente">pendiente...</string>
 </resources>

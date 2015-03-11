@@ -38,7 +38,7 @@
                 android:value="com.entaconsulting.pruebalocalizacion.RelevamientoActivity" />
         </activity>
         <service
-            android:name=".FetchAddressIntentService"
+            android:name=".FetchAdressIntentService"
             android:exported="false"/>
 
     </application>

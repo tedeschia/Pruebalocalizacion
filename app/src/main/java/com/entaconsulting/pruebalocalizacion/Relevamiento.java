@@ -77,6 +77,22 @@ public class Relevamiento implements Serializable {
         this.mLongitud = mLongitud;
     }
 
+    public String getDireccionEstado() {
+        return mDireccionEstado;
+    }
+
+    public void setDireccionEstado(String mDireccionEstado) {
+        this.mDireccionEstado = mDireccionEstado;
+    }
+
+    public String getDireccion() {
+        return mDireccion;
+    }
+
+    public void setDireccion(String mDireccion) {
+        this.mDireccion = mDireccion;
+    }
+
     public class EstadosDireccion{
         public static final String Pendiente = "pendiente";
         public static final String Resuelta = "resuelta";

@@ -1,11 +1,13 @@
 package com.entaconsulting.pruebalocalizacion;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationManager;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.ResultReceiver;
 import android.support.v4.app.Fragment;
@@ -22,15 +24,17 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 
 import com.google.android.gms.location.LocationServices;
+import com.google.gson.Gson;
+import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
 
 import java.security.InvalidParameterException;
+import java.util.Date;
 
 
 public class RelevamientoActivity extends ActionBarActivity
         implements RelevamientoFragment.OnFragmentInteractionListener,
         GooglePlayServicesHelper.OnConnectedCallback
 {
-    static final int NUM_ITEMS = 1;
     private static final String TAG = "RelevamientoActivity";
     private GooglePlayServicesHelper mGooglePlayServices;
     private Location mLastKnownLocation;
@@ -82,12 +86,11 @@ public class RelevamientoActivity extends ActionBarActivity
         }
     }
 
-    private void addRelevamientoResult(Relevamiento relevamiento) {
-        RelevamientoFragment fragment = (RelevamientoFragment)getSupportFragmentManager().findFragmentById(R.id.detalle_relevamiento_fragment);
-        if(fragment!=null){
-            fragment.addItem(relevamiento);
-        }
+    private void addRelevamientoResult(final Relevamiento relevamiento) {
+        RelevamientoFragment fragment = (RelevamientoFragment) getSupportFragmentManager().findFragmentById(R.id.detalle_relevamiento_fragment);
+        fragment.addItem(relevamiento);
     }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {

@@ -26,7 +26,10 @@ public class DataHelper {
             mClient = new MobileServiceClient(
                     "https://relevamientoterritorial.azure-mobile.net/",
                     "BQbVnKfbptcoGWgAuKQJyzYmCDjdII54",
-                    activity).withFilter(filter);
+                    activity);
+            if(filter!=null){
+                mClient = mClient.withFilter(filter);
+            }
 
             buildLocalTableDefinitions(mClient);
 
@@ -56,6 +59,8 @@ public class DataHelper {
         tableDefinition.put("datos", ColumnDataType.String);
         tableDefinition.put("latitud", ColumnDataType.Real);
         tableDefinition.put("longitud", ColumnDataType.Real);
+        tableDefinition.put("direccion", ColumnDataType.String);
+        tableDefinition.put("direccionEstado", ColumnDataType.String);
 
         localStore.defineTable("Relevamiento", tableDefinition);
         mSyncContext.initialize(localStore, handler).get();
