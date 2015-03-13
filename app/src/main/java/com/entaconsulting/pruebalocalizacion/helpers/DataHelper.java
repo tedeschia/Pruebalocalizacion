@@ -25,20 +25,17 @@ public class DataHelper {
     private MobileServiceClient mClient;
 
     public DataHelper(Context context) throws Exception {
-        connect(context, null);
+        connect(context);
     }
 
-    public DataHelper(Activity activity){
-        this(activity, null);
-    }
-    public DataHelper(Activity activity, ProgressFilter filter) {
+    public DataHelper(Activity activity) {
         try {
-            connect(activity, filter);
+            connect(activity);
         } catch (Exception e) {
             MessageHelper.createAndShowDialog(activity, e, "Error");
         }
     }
-    private void connect(Context context, ProgressFilter filter) throws Exception {
+    private void connect(Context context) throws Exception {
         try {
             // Create the Mobile Service Client instance, using the provided
             // Mobile Service URL and key
@@ -46,8 +43,6 @@ public class DataHelper {
                     "https://relevamientoterritorial.azure-mobile.net/",
                     "BQbVnKfbptcoGWgAuKQJyzYmCDjdII54",
                     context);
-            if(filter!=null)
-                mClient = mClient.withFilter(filter);
 
             buildLocalTableDefinitions(mClient);
 

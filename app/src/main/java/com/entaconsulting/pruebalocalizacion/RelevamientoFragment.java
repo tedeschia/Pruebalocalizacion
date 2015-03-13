@@ -81,7 +81,6 @@ public class RelevamientoFragment extends Fragment {
     private MenuItem mAnimatedRefreshMenuItem;
 
     private OnFragmentInteractionListener mListener;
-    private ProgressFilter mProgressFilter;
 
     private ArrayList<Relevamiento> mDatosRelevamiento;
 
@@ -139,8 +138,7 @@ public class RelevamientoFragment extends Fragment {
     }
     private void inicializarDatos() {
 
-        mProgressFilter = new ProgressFilter(getActivity());
-        mClient = new DataHelper(getActivity());//,mProgressFilter);
+        mClient = new DataHelper(getActivity());
 
     }
 
