@@ -1,12 +1,12 @@
 package com.entaconsulting.pruebalocalizacion;
 
-import android.app.DownloadManager;
 import android.app.IntentService;
 import android.content.Intent;
 import android.location.Address;
 import android.location.Geocoder;
 import android.os.Bundle;
 import android.os.ResultReceiver;
+import android.support.v4.content.LocalBroadcastManager;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -32,6 +32,8 @@ public class FetchAdressIntentService extends IntentService {
     private MobileServiceSyncTable<Relevamiento> mRelevamientoTable;
     private Query mPullQuery;
     private AlarmReceiver mAlarm;
+    private int mTotalSteps;
+    private int mCurrentStep;
 
     public FetchAdressIntentService(){
         super(TAG);
@@ -48,48 +50,43 @@ public class FetchAdressIntentService extends IntentService {
     @Override
     protected void onHandleIntent(Intent intent) {
 
-        mReceiver = intent.getParcelableExtra(Constants.RECEIVER);
-
-        for(int i = 0; i<20; i++){
-            try {
-                Thread.sleep(10000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            mReceiver.send(Constants.PROGRESS_RESULT, null);
-        }
-        if(true){
-            return;
-        }
+        //mReceiver = intent.getParcelableExtra(Constants.RECEIVER);
 
         if(!ConnectivityHelper.isConnected(getApplicationContext())){
-            deliverResultErrorToReceiver("No se encuentra conectado");
+            broadcastSuccess();
             scheduleRetry();
             return;
         }
 
         try {
-            mClient = new DataHelper(getApplicationContext());
-            mRelevamientoTable = mClient.getClient().getSyncTable(Relevamiento.class);
-            mPullQuery = mClient.getClient().getTable(Relevamiento.class)
-                    .orderBy("fecha", QueryOrder.Descending)
-                    .top(1000);
+            if(mClient==null) {
+                mClient = new DataHelper(getApplicationContext());
+                mRelevamientoTable = mClient.getClient().getSyncTable(Relevamiento.class);
+                /*mPullQuery = mClient.getClient().getTable(Relevamiento.class)
+                        .orderBy("fecha", QueryOrder.Descending)
+                        .top(1000);*/
+            }
 
             ArrayList<Relevamiento> pendientes = getPendientes();
+
+            mTotalSteps = pendientes.size() + 2;
+            broadcastProgress(null);
+
             if(pendientes.size()>0){
-                ArrayList<Relevamiento> resueltos = procesarPendientes(pendientes);
+                procesarPendientes(pendientes);
             }
 
             //sincronizo con el server
             mClient.getClient().getSyncContext().push().get();
+            broadcastProgress(null);
             //mRelevamientoTable.pull(mPullQuery).get();
 
-            deliverResultSuccessToReceiver();
+            broadcastSuccess();
 
         } catch (Exception e) {
             Log.e(TAG, e.getMessage());
             e.printStackTrace();
-            deliverResultErrorToReceiver(e.getMessage());
+            broadcastError(e.getMessage());
 
         }
 
@@ -99,18 +96,17 @@ public class FetchAdressIntentService extends IntentService {
 
     }
 
-    private ArrayList<Relevamiento> procesarPendientes(ArrayList<Relevamiento> pendientes) {
-        ArrayList<Relevamiento> resueltos = new ArrayList<>();
+    private void procesarPendientes(ArrayList<Relevamiento> pendientes) {
         for(Relevamiento pendiente:pendientes){
             if(!ConnectivityHelper.isConnected(getApplicationContext())){
                 break;
             }
             resolveLocation(pendiente);
+
             if(pendiente.getDireccionEstado()!=Relevamiento.EstadosDireccion.Pendiente){
-                resueltos.add(pendiente);
+                broadcastProgress(pendiente);
             }
         }
-        return resueltos;
     }
 
     private void resolveLocation(Relevamiento relevamiento){
@@ -163,20 +159,26 @@ public class FetchAdressIntentService extends IntentService {
             }
         }
     }
-    private void deliverResultErrorToReceiver(String message) {
-        if(mReceiver!=null) {
-            Bundle bundle = new Bundle();
-            bundle.putString(Constants.RESULT_DATA_KEY, message);
-            mReceiver.send(Constants.FAILURE_RESULT, bundle);
-        }
+    private void broadcastError(String message) {
+        Intent intent = new Intent(Constants.BROADCAST_ACTION)
+            .putExtra(Constants.STATUS_DATA_EXTRA,Constants.FAILURE_RESULT)
+            .putExtra(Constants.RESULT_DATA_KEY, message);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
-    private void deliverResultSuccessToReceiver() {
-        if(mReceiver!=null) {
-            Bundle bundle = new Bundle();
-            //bundle.putParcelableArrayList(Constants.RESULT_DATA_KEY, resueltos);
-            mReceiver.send(Constants.SUCCESS_RESULT, bundle);
-        }
+    private void broadcastSuccess() {
+        Intent intent = new Intent(Constants.BROADCAST_ACTION)
+                .putExtra(Constants.STATUS_DATA_EXTRA,Constants.SUCCESS_RESULT);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+    }
+
+    private void broadcastProgress(Relevamiento relevamiento) {
+        mCurrentStep++;
+        Intent intent = new Intent(Constants.BROADCAST_ACTION)
+                .putExtra(Constants.STATUS_DATA_EXTRA,Constants.PROGRESS_RESULT)
+                .putExtra(Constants.PROGRESS_DATA_EXTRA, mCurrentStep * 1.0 / mTotalSteps)
+                .putExtra(Constants.RELEVAMIENTO_DATA_EXTRA, relevamiento);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
 
@@ -202,7 +204,10 @@ public class FetchAdressIntentService extends IntentService {
         public static final String LOCATION_LON_DATA_EXTRA = PACKAGE_NAME +
                 ".LOCATION__LON_DATA_EXTRA";
 
-        public static final String RELEVAMIENTOS_DATA_EXTRA = PACKAGE_NAME + ".RELEVAMIENTOS_DATA_EXTRA";
+        public static final String RELEVAMIENTO_DATA_EXTRA = PACKAGE_NAME + ".RELEVAMIENTO_DATA_EXTRA";
 
+        public static final String BROADCAST_ACTION = PACKAGE_NAME + ".BROADCAST";
+        public static final String STATUS_DATA_EXTRA = PACKAGE_NAME + ".STATUS_DATA_EXTRA";
+        public static final String PROGRESS_DATA_EXTRA = PACKAGE_NAME + ".PROGRESS_DATA_EXTRA";
     }
 }

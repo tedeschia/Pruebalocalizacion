@@ -18,8 +18,7 @@
 
         <activity
             android:name=".RelevamientoActivity"
-            android:label="@string/title_activity_main"
-            android:uiOptions="splitActionBarWhenNarrow" >
+            android:label="@string/title_activity_main">
             <meta-data
                 android:name="android.support.UI_OPTIONS"
                 android:value="splitActionBarWhenNarrow" />

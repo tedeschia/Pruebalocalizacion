@@ -6,9 +6,11 @@
     android:layout_height="match_parent">
 
     <ProgressBar
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:id="@+id/loadingProgressBar"
-        android:layout_width="28dp"
-        android:layout_height="28dp" />
+        android:indeterminate="false" />
 
     <ListView
         android:id="@+id/listViewRelevamiento"

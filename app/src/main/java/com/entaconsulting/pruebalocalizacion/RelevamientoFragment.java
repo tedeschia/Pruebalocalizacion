@@ -1,14 +1,15 @@
 package com.entaconsulting.pruebalocalizacion;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.ResultReceiver;
 import android.support.v4.app.Fragment;
+import android.support.v4.content.LocalBroadcastManager;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -24,19 +25,12 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.google.common.base.Optional;
-import com.google.gson.JsonObject;
 import com.microsoft.windowsazure.mobileservices.table.query.Query;
 import com.microsoft.windowsazure.mobileservices.table.query.QueryOrder;
 import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
-import com.microsoft.windowsazure.mobileservices.table.sync.operations.RemoteTableOperationProcessor;
-import com.microsoft.windowsazure.mobileservices.table.sync.operations.TableOperation;
-import com.microsoft.windowsazure.mobileservices.table.sync.push.MobileServicePushCompletionResult;
-import com.microsoft.windowsazure.mobileservices.table.sync.synchandler.MobileServiceSyncHandler;
-import com.microsoft.windowsazure.mobileservices.table.sync.synchandler.MobileServiceSyncHandlerException;
 
 import java.text.DateFormat;
 import java.util.ArrayList;
-import java.util.concurrent.ExecutionException;
 
 import static com.microsoft.windowsazure.mobileservices.table.query.QueryOperations.val;
 
@@ -84,12 +78,7 @@ public class RelevamientoFragment extends Fragment {
     private OnFragmentInteractionListener mListener;
     private ProgressFilter mProgressFilter;
 
-    /**
-     * Receiver registered with this activity to get the response from FetchAddressIntentService.
-     */
-    private AddressResultReceiver mResultReceiver;
     private ArrayList<Relevamiento> mDatosRelevamiento;
-    private boolean mSincronizando;
 
     /**
      * Use this factory method to create a new instance of
@@ -120,17 +109,28 @@ public class RelevamientoFragment extends Fragment {
             mParam1 = getArguments().getString(ARG_PARAM1);
             mParam2 = getArguments().getString(ARG_PARAM2);
         }
-        if(savedInstanceState!=null){
-            mSincronizando = savedInstanceState.getBoolean(STATE_SINCRONIZANDO);
-        }
+        registerBroadcastReceiver();
         setHasOptionsMenu(true);
 
         inicializarDatos();
     }
+
+    private void registerBroadcastReceiver() {
+        // The filter's action is BROADCAST_ACTION
+        IntentFilter mStatusIntentFilter = new IntentFilter(
+                FetchAdressIntentService.Constants.BROADCAST_ACTION);
+        // Instantiates a new DownloadStateReceiver
+        AddressResultReceiver mAddressReceiver =
+                new AddressResultReceiver();
+        // Registers the DownloadStateReceiver and its intent filters
+        LocalBroadcastManager.getInstance(getActivity()).registerReceiver(
+                mAddressReceiver,
+                mStatusIntentFilter);
+    }
+
     @Override
     public void onSaveInstanceState(Bundle savedInstanceState) {
         super.onSaveInstanceState(savedInstanceState);
-        savedInstanceState.putBoolean(STATE_SINCRONIZANDO,mSincronizando);
     }
     private void inicializarDatos() {
 
@@ -143,15 +143,15 @@ public class RelevamientoFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View main = inflater.inflate(R.layout.fragment_relevamiento, container, false);
+        mProgressBar = (ProgressBar)main.findViewById(R.id.loadingProgressBar);
+        mProgressBar.setVisibility(ProgressBar.GONE);
+
         inicializarLista(getActivity(), main);
 
         return main;
     }
 
     private void inicializarLista(Context context, View view){
-        mProgressBar = (ProgressBar) view.findViewById(R.id.loadingProgressBar);
-        mProgressFilter.setProgressBar(mProgressBar);
-        mProgressBar.setVisibility(ProgressBar.GONE);
 
         // Create the Mobile Service Client instance, using the provided
         // Mobile Service URL and key
@@ -174,19 +174,24 @@ public class RelevamientoFragment extends Fragment {
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.fragment_relevamiento_actions, menu);
-        if(mSincronizando){
-            startAnimation(menu.findItem(R.id.action_refresh));
-        }
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.action_refresh) {
-            startAnimation(item);
             sincronizar();
+            return true;
         }
 
-        return true;
+        return false;
+    }
+
+    private void sincronizar() {
+        if(!ConnectivityHelper.isConnected(getActivity())){
+            MessageHelper.createAndShowDialog(getActivity(), "No se encuentra conectado", "Error");
+        }else {
+            startSyncService();
+        }
     }
 
     private void startAnimation(MenuItem item) {
@@ -295,7 +300,7 @@ public class RelevamientoFragment extends Fragment {
                         public void run() {
                             mAdapter.insert(entity, 0);
                             if(ConnectivityHelper.isConnected(getActivity())) {
-                                sincronizar();
+                                startSyncService();
                             }
                         }
                     });
@@ -308,34 +313,20 @@ public class RelevamientoFragment extends Fragment {
         }.execute();
     }
 
-    public void updateItems(final ArrayList<Relevamiento> relevamientos){
-        for(Relevamiento relevamiento:relevamientos){
-            int pos = mDatosRelevamiento.indexOf(relevamiento);
-            if(pos>=0){
-                mDatosRelevamiento.set(pos, relevamiento);
-            }
+    public void updateItem(final Relevamiento relevamiento){
+        int pos = mDatosRelevamiento.indexOf(relevamiento);
+        if(pos>=0){
+            mDatosRelevamiento.set(pos, relevamiento);
         }
         mAdapter.notifyDataSetChanged();
     }
 
-    private void sincronizar() {
+    private void startSyncService() {
 
-        if(!ConnectivityHelper.isConnected(getActivity())){
-            stopAnimation();
-            MessageHelper.createAndShowDialog(getActivity(),"No se encuentra conectado","Error");
-            return;
-        }
-
-        mSincronizando = true;
-
+        mProgressBar.setVisibility(ProgressBar.VISIBLE);
+        mProgressBar.setProgress(0);
         // Create an intent for passing to the intent service responsible for fetching the address.
         Intent intent = new Intent(getActivity(), FetchAdressIntentService.class);
-
-        if(mResultReceiver==null)
-            mResultReceiver = new AddressResultReceiver(new Handler());
-
-        // Pass the result receiver as an extra to the service.
-        intent.putExtra(FetchAdressIntentService.Constants.RECEIVER, mResultReceiver);
 
         // Start the service. If the service isn't already running, it is instantiated and started
         // (creating a process for it if needed); if it is running then it remains running. The
@@ -343,6 +334,10 @@ public class RelevamientoFragment extends Fragment {
         getActivity().startService(intent);
 
     }
+    private void endSyncService(){
+        mProgressBar.setVisibility(ProgressBar.GONE);
+    }
+
 
 
 
@@ -423,37 +418,39 @@ public class RelevamientoFragment extends Fragment {
     /**
      * Receiver for data sent from FetchAddressIntentService.
      */
-    class AddressResultReceiver extends ResultReceiver {
+    class AddressResultReceiver extends BroadcastReceiver {
 
-        public AddressResultReceiver(Handler handler) {
-            super(handler);
-        }
+        private AddressResultReceiver(){ }
 
         /**
          *  Receives data sent from FetchAddressIntentService and updates the UI in MainActivity.
          */
         @Override
-        protected void onReceiveResult(int resultCode, Bundle resultData) {
+        public void onReceive(Context context, Intent intent) {
+
+            int resultCode = intent.getIntExtra(FetchAdressIntentService.Constants.STATUS_DATA_EXTRA,-1);
 
 
             switch (resultCode) {
                 case FetchAdressIntentService.Constants.PROGRESS_RESULT:
+                    double progress = intent.getDoubleExtra(FetchAdressIntentService.Constants.PROGRESS_DATA_EXTRA,1);
+
+                    mProgressBar.setVisibility(ProgressBar.VISIBLE);
+                    mProgressBar.setProgress((int)(progress * 100));
+
+                    Relevamiento relevamientoActualizado = intent.getParcelableExtra(FetchAdressIntentService.Constants.RELEVAMIENTO_DATA_EXTRA);
+                    if(relevamientoActualizado!=null){
+                        updateItem(relevamientoActualizado);
+                    }
                     break;
                 case FetchAdressIntentService.Constants.SUCCESS_RESULT:
-                    // Display the address string or an error message sent from the intent service.
-                    //ArrayList<Relevamiento> resultado = resultData.getParcelableArrayList(FetchAdressIntentService.Constants.RESULT_DATA_KEY);
-                    //updateItems(resultado);
-                    loadItemsFromTable();
+                    endSyncService();
                     break;
-                default:
-                    String message = resultData.getString(FetchAdressIntentService.Constants.RESULT_DATA_KEY);
+                case FetchAdressIntentService.Constants.FAILURE_RESULT:
+                    String message = intent.getStringExtra(FetchAdressIntentService.Constants.RESULT_DATA_KEY);
                     MessageHelper.createAndShowDialog(getActivity(), message, "Error");
+                    endSyncService();
             }
-            // Show a toast message if an address was found.
-
-            mSincronizando=false;
-
-            stopAnimation();
 
         }
     }

@@ -1,37 +1,16 @@
 package com.entaconsulting.pruebalocalizacion;
 
-import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
-import android.location.Criteria;
 import android.location.Location;
-import android.location.LocationManager;
-import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.ResultReceiver;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentPagerAdapter;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.view.ViewPager;
+import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
-import android.support.v7.app.ActionBar;
-import android.support.v7.app.ActionBarActivity;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
-import com.google.android.gms.location.LocationServices;
-import com.google.gson.Gson;
-import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
-
-import java.security.InvalidParameterException;
-import java.util.Date;
-
-
-public class RelevamientoActivity extends ActionBarActivity
+public class RelevamientoActivity extends FragmentActivity
         implements RelevamientoFragment.OnFragmentInteractionListener,
         GooglePlayServicesHelper.OnConnectedCallback
 {
