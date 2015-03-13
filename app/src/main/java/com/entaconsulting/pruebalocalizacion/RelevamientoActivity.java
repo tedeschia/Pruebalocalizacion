@@ -37,7 +37,6 @@ public class RelevamientoActivity extends ActionBarActivity
 {
     private static final String TAG = "RelevamientoActivity";
     private GooglePlayServicesHelper mGooglePlayServices;
-    private Location mLastKnownLocation;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,6 +66,16 @@ public class RelevamientoActivity extends ActionBarActivity
         mGooglePlayServices.start();
     }
     @Override
+    protected void onResume(){
+        super.onResume();
+        mGooglePlayServices.startLocationUpdates(3000, 1000);
+    }
+    @Override
+    protected void onPause(){
+        super.onPause();
+        mGooglePlayServices.stopLocationUpdates();
+    }
+    @Override
     protected void onStop(){
         super.onStop();
         mGooglePlayServices.stop();
@@ -77,7 +86,7 @@ public class RelevamientoActivity extends ActionBarActivity
         switch(requestCode){
             case RelevamientoDetalleActivity.REQUEST_ADD:
                 if(resultCode == RESULT_OK){
-                    Relevamiento relevamiento = (Relevamiento)data.getSerializableExtra(RelevamientoDetalleActivity.EXTRA_RELEVAMIENTO);
+                    Relevamiento relevamiento = data.getParcelableExtra(RelevamientoDetalleActivity.EXTRA_RELEVAMIENTO);
                     addRelevamientoResult(relevamiento);
                 }
                 break;
@@ -136,11 +145,7 @@ public class RelevamientoActivity extends ActionBarActivity
     @Override
     public Location getLastKnownLocation() {
 
-        Location location = LocationServices.FusedLocationApi.getLastLocation(mGooglePlayServices.getClient());
-        if (location != null) {
-            mLastKnownLocation = location;
-        }
-        return mLastKnownLocation;
+        return mGooglePlayServices.getLastKnownLocation();
     }
 
     class AddressResultReceiver extends ResultReceiver {

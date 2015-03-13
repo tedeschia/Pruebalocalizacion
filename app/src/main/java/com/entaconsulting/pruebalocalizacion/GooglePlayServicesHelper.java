@@ -6,18 +6,24 @@ import android.content.DialogInterface;
 import android.content.DialogInterface.OnCancelListener;
 import android.content.Intent;
 import android.content.IntentSender.SendIntentException;
+import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+
+import java.util.Date;
 
 
 public class GooglePlayServicesHelper implements
         GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener {
+        GoogleApiClient.OnConnectionFailedListener,
+        LocationListener{
 
     private static final String TAG = "GooglePlayServicesActivity";
 
@@ -37,9 +43,20 @@ public class GooglePlayServicesHelper implements
 
     private Activity mActivity;
     private OnConnectedCallback mListener;
+    private boolean mLocationUpdates;
+    private LocationRequest mLocationRequest;
+    private Location mCurrentLocation;
+    private Date mLastUpdateTime;
 
     public GooglePlayServicesHelper(Activity activity){
         mActivity = activity;
+        mGoogleApiClient = new GoogleApiClient.Builder(mActivity)
+                // Optionally, add additional APIs and scopes if required.
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(LocationServices.API)
+                .build();
+
         try {
             mListener = (OnConnectedCallback) activity;
         } catch (ClassCastException e) {
@@ -57,14 +74,6 @@ public class GooglePlayServicesHelper implements
      * activities itself.
      */
     public void start() {
-        if (mGoogleApiClient == null) {
-            mGoogleApiClient = new GoogleApiClient.Builder(mActivity)
-                    // Optionally, add additional APIs and scopes if required.
-                    .addConnectionCallbacks(this)
-                    .addOnConnectionFailedListener(this)
-                    .addApi(LocationServices.API)
-                    .build();
-        }
         mGoogleApiClient.connect();
     }
 
@@ -101,11 +110,21 @@ public class GooglePlayServicesHelper implements
      */
     @Override
     public void onConnected(Bundle connectionHint) {
+        if(mLocationUpdates){
+            startLocationUpdatesInternal();
+        }
+
         mListener.onConnected();
     }
 
     public GoogleApiClient getClient() {
         return mGoogleApiClient;
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        mCurrentLocation = location;
+        mLastUpdateTime = new Date();
     }
 
     public interface OnConnectedCallback{
@@ -164,5 +183,37 @@ public class GooglePlayServicesHelper implements
 
     public void setIsInResolution(boolean mIsInResolution) {
         this.mIsInResolution = mIsInResolution;
+    }
+
+    public void startLocationUpdates(long interval, long fastestInterval){
+        mLocationRequest = new LocationRequest();
+        mLocationRequest.setInterval(interval);
+        mLocationRequest.setFastestInterval(fastestInterval);
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+
+        mLocationUpdates = true;
+        startLocationUpdatesInternal();
+
+    }
+    public void stopLocationUpdates(){
+        mLocationUpdates = false;
+        LocationServices.FusedLocationApi.removeLocationUpdates(
+                mGoogleApiClient, this);
+    }
+    public Location getLastKnownLocation(){
+        if(mLocationUpdates){
+            return mCurrentLocation;
+        }
+        return null;
+    }
+    private void startLocationUpdatesInternal(){
+        if(mGoogleApiClient.isConnected()){
+            //tomo la ultima conocida porque si no cambia no reporta el evento de update
+            mCurrentLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+            mLastUpdateTime = new Date();
+
+            LocationServices.FusedLocationApi.requestLocationUpdates(
+                    mGoogleApiClient, mLocationRequest, this);
+        }
     }
 }

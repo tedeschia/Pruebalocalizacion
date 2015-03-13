@@ -1,19 +1,25 @@
 package com.entaconsulting.pruebalocalizacion;
 
+import android.app.DownloadManager;
 import android.app.IntentService;
 import android.content.Intent;
 import android.location.Address;
 import android.location.Geocoder;
-import android.location.Location;
 import android.os.Bundle;
 import android.os.ResultReceiver;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.microsoft.windowsazure.mobileservices.table.query.ExecutableQuery;
+import com.microsoft.windowsazure.mobileservices.table.query.Query;
+import com.microsoft.windowsazure.mobileservices.table.query.QueryOrder;
+import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Created by atedeschi on 10/3/15.
@@ -22,6 +28,10 @@ public class FetchAdressIntentService extends IntentService {
     private static final String TAG = "com.entaconsulting.pruebalocalizacion.FetchAdressIntentService";
 
     protected ResultReceiver mReceiver;
+    private DataHelper mClient;
+    private MobileServiceSyncTable<Relevamiento> mRelevamientoTable;
+    private Query mPullQuery;
+    private AlarmReceiver mAlarm;
 
     public FetchAdressIntentService(){
         super(TAG);
@@ -37,67 +47,151 @@ public class FetchAdressIntentService extends IntentService {
 
     @Override
     protected void onHandleIntent(Intent intent) {
-        String errorMessage = "";
 
-        // Get the location passed to this service through an extra.
-        double lat = intent.getDoubleExtra(Constants.LOCATION_LAT_DATA_EXTRA,0);
-        double lon = intent.getDoubleExtra(Constants.LOCATION_LON_DATA_EXTRA,0);
         mReceiver = intent.getParcelableExtra(Constants.RECEIVER);
 
-        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+        for(int i = 0; i<20; i++){
+            try {
+                Thread.sleep(10000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            mReceiver.send(Constants.PROGRESS_RESULT, null);
+        }
+        if(true){
+            return;
+        }
+
+        if(!ConnectivityHelper.isConnected(getApplicationContext())){
+            deliverResultErrorToReceiver("No se encuentra conectado");
+            scheduleRetry();
+            return;
+        }
+
+        try {
+            mClient = new DataHelper(getApplicationContext());
+            mRelevamientoTable = mClient.getClient().getSyncTable(Relevamiento.class);
+            mPullQuery = mClient.getClient().getTable(Relevamiento.class)
+                    .orderBy("fecha", QueryOrder.Descending)
+                    .top(1000);
+
+            ArrayList<Relevamiento> pendientes = getPendientes();
+            if(pendientes.size()>0){
+                ArrayList<Relevamiento> resueltos = procesarPendientes(pendientes);
+            }
+
+            //sincronizo con el server
+            mClient.getClient().getSyncContext().push().get();
+            //mRelevamientoTable.pull(mPullQuery).get();
+
+            deliverResultSuccessToReceiver();
+
+        } catch (Exception e) {
+            Log.e(TAG, e.getMessage());
+            e.printStackTrace();
+            deliverResultErrorToReceiver(e.getMessage());
+
+        }
+
+    }
+
+    private void scheduleRetry() {
+
+    }
+
+    private ArrayList<Relevamiento> procesarPendientes(ArrayList<Relevamiento> pendientes) {
+        ArrayList<Relevamiento> resueltos = new ArrayList<>();
+        for(Relevamiento pendiente:pendientes){
+            if(!ConnectivityHelper.isConnected(getApplicationContext())){
+                break;
+            }
+            resolveLocation(pendiente);
+            if(pendiente.getDireccionEstado()!=Relevamiento.EstadosDireccion.Pendiente){
+                resueltos.add(pendiente);
+            }
+        }
+        return resueltos;
+    }
+
+    private void resolveLocation(Relevamiento relevamiento){
+        // Get the location passed to this service through an extra.
+        String estadoOriginal = relevamiento.getDireccionEstado();
+        String direccionOriginal = relevamiento.getDireccion();
+
+        Geocoder geocoder = new Geocoder(this, new Locale("es","ES"));
 
         List<Address> addresses = null;
+        Boolean servicioNoDisponible = false;
 
         try {
             addresses = geocoder.getFromLocation(
-                    lat,
-                    lon,
-                    // In this sample, get just a single address.
+                    relevamiento.getLatitud(),
+                    relevamiento.getLongitud(),
                     1);
-        } catch (IOException ioException) {
-            // Catch network or other I/O problems.
-            errorMessage = getString(R.string.service_not_available);
-            Log.e(TAG, errorMessage, ioException);
         } catch (IllegalArgumentException illegalArgumentException) {
             // Catch invalid latitude or longitude values.
-            errorMessage = getString(R.string.invalid_lat_long_used);
-            Log.e(TAG, errorMessage + ". " +
-                    "Latitude = " + lat +
-                    ", Longitude = " + lon, illegalArgumentException);
+            relevamiento.setDireccionEstado(Relevamiento.EstadosDireccion.ErrorInesperado);
+            relevamiento.setDireccion(getString(R.string.invalid_lat_long_used));
+        } catch (IOException ioException) {
+            servicioNoDisponible=true;
         }
 
-        // Handle case where no address was found.
-        if (addresses == null || addresses.size()  == 0) {
-            if (errorMessage.isEmpty()) {
-                errorMessage = getString(R.string.no_address_found);
-                Log.e(TAG, errorMessage);
-            }
-            deliverResultToReceiver(Constants.FAILURE_RESULT, errorMessage);
-        } else {
-            Address address = addresses.get(0);
-            ArrayList<String> addressFragments = new ArrayList<String>();
+        if(!servicioNoDisponible) {
+            if (addresses == null || addresses.size() == 0) {
+                relevamiento.setDireccionEstado(Relevamiento.EstadosDireccion.NoEncontrada);
+            } else {
+                Address address = addresses.get(0);
+                ArrayList<String> addressFragments = new ArrayList<String>();
 
-            // Fetch the address lines using getAddressLine,
-            // join them, and send them to the thread.
-            for(int i = 0; i < address.getMaxAddressLineIndex(); i++) {
-                addressFragments.add(address.getAddressLine(i));
+                for (int i = 0; i < address.getMaxAddressLineIndex(); i++) {
+                    addressFragments.add(address.getAddressLine(i));
+                }
+                if(addressFragments.size()>0) {
+                    relevamiento.setDireccion(TextUtils.join(", ", addressFragments));
+                    relevamiento.setDireccionEstado(Relevamiento.EstadosDireccion.Resuelta);
+                } else{
+                    relevamiento.setDireccionEstado(Relevamiento.EstadosDireccion.NoEncontrada);
+                }
             }
-            Log.i(TAG, getString(R.string.address_found));
-            deliverResultToReceiver(Constants.SUCCESS_RESULT,
-                    TextUtils.join(System.getProperty("line.separator"),
-                            addressFragments));
+            try {
+                if(relevamiento.getDireccionEstado()!=Relevamiento.EstadosDireccion.Pendiente){
+                    mRelevamientoTable.update(relevamiento).get();
+                }
+            } catch (Exception e) {
+                relevamiento.setDireccion(direccionOriginal);
+                relevamiento.setDireccionEstado(estadoOriginal);
+            }
+        }
+    }
+    private void deliverResultErrorToReceiver(String message) {
+        if(mReceiver!=null) {
+            Bundle bundle = new Bundle();
+            bundle.putString(Constants.RESULT_DATA_KEY, message);
+            mReceiver.send(Constants.FAILURE_RESULT, bundle);
         }
     }
 
-    private void deliverResultToReceiver(int resultCode, String message) {
-        Bundle bundle = new Bundle();
-        bundle.putString(Constants.RESULT_DATA_KEY, message);
-        mReceiver.send(resultCode, bundle);
+    private void deliverResultSuccessToReceiver() {
+        if(mReceiver!=null) {
+            Bundle bundle = new Bundle();
+            //bundle.putParcelableArrayList(Constants.RESULT_DATA_KEY, resueltos);
+            mReceiver.send(Constants.SUCCESS_RESULT, bundle);
+        }
+    }
+
+
+
+    public ArrayList<Relevamiento> getPendientes() throws ExecutionException, InterruptedException {
+        ExecutableQuery<Relevamiento> query = mClient.getClient().getTable(Relevamiento.class)
+                .where().field("direccionEstado").eq(Relevamiento.EstadosDireccion.Pendiente);
+
+        return mRelevamientoTable.read(query).get();
     }
 
     public final class Constants {
         public static final int SUCCESS_RESULT = 0;
         public static final int FAILURE_RESULT = 1;
+        public static final int PROGRESS_RESULT = 2;
         public static final String PACKAGE_NAME =
                 "com.google.android.gms.location.sample.locationaddress";
         public static final String RECEIVER = PACKAGE_NAME + ".RECEIVER";
@@ -107,5 +201,8 @@ public class FetchAdressIntentService extends IntentService {
                 ".LOCATION_LAT_DATA_EXTRA";
         public static final String LOCATION_LON_DATA_EXTRA = PACKAGE_NAME +
                 ".LOCATION__LON_DATA_EXTRA";
+
+        public static final String RELEVAMIENTOS_DATA_EXTRA = PACKAGE_NAME + ".RELEVAMIENTOS_DATA_EXTRA";
+
     }
 }

@@ -50,16 +50,11 @@ public class RelevamientoDetalleFragment extends Fragment {
     public static final String ARG_RELEVAMIENTO_ID = "relevamiento_id";
     public static final String ARG_LOCALIZACION = "localizacion";
 
-    private String mAction;
-
     private HashMap<String, DatoRelevamientoPublicidad> mDatosRelevamiento;
     private String[] mCandidatos;
     private String[] mMateriales;
 
     private OnFragmentInteractionListener mListener;
-    private DataHelper mClient;
-    private ProgressFilter mProgressFilter;
-    private String mRelevamientoId;
     private Location mLocalizacion;
 
     /**
@@ -89,8 +84,6 @@ public class RelevamientoDetalleFragment extends Fragment {
         super.onCreate(savedInstanceState);
 
         if (getArguments() != null) {
-            mAction = getArguments().getString(ARG_ACTION_MESSAGE);
-            mRelevamientoId = getArguments().getString(ARG_RELEVAMIENTO_ID);
             mLocalizacion = getArguments().getParcelable(ARG_LOCALIZACION);
         }
         setHasOptionsMenu(true);
@@ -102,8 +95,6 @@ public class RelevamientoDetalleFragment extends Fragment {
         }else{
             mDatosRelevamiento = datosBdAVista(null);
         }
-        mProgressFilter = new ProgressFilter(getActivity());
-        mClient = new DataHelper(getActivity(),mProgressFilter);
     }
 
     @Override
@@ -153,13 +144,6 @@ public class RelevamientoDetalleFragment extends Fragment {
         View main = inflater.inflate(R.layout.fragment_relevamiento_detalle, container, false);
         TableLayout table = (TableLayout) main.findViewById(R.id.main_table);
 
-        //Setup progress bar
-        View progressBar = container.findViewById(R.id.loadingProgressBar);
-        if(progressBar!=null){
-            mProgressFilter.setProgressBar(progressBar);
-            progressBar.setVisibility(ProgressBar.GONE);
-        }
-
         buildTable(table, inflater, getActivity());
         return main;
     }
@@ -182,36 +166,14 @@ public class RelevamientoDetalleFragment extends Fragment {
     }
 
     private void guardar() {
-        if (mClient == null) {
-            MessageHelper.createAndShowDialog(getActivity(), "No se encuentra conectado al servicio de datos","ERROR");
+        Relevamiento relevamiento = new Relevamiento(new Date());
+        String json = new Gson().toJson(datosVistaABd());
+        relevamiento.setDatos(json);
+        relevamiento.setLatitud(mLocalizacion.getLatitude());
+        relevamiento.setLongitud(mLocalizacion.getLongitude());
+        if(mListener!=null){
+            mListener.onItemSaved(relevamiento);
         }
-
-        final MobileServiceSyncTable<Relevamiento> tableRelevamiento = mClient.getClient().getSyncTable(Relevamiento.class);
-        //MobileServiceTable<Relevamiento> tableRelevamientoDetalle = mClient.getTable(RelevamientoDetalle.class);
-        new AsyncTask<Void, Void, Void>(){
-            @Override
-            protected Void doInBackground(Void... params) {
-                try {
-                    Relevamiento entity = new Relevamiento(new Date());
-                    String json = new Gson().toJson(datosVistaABd());
-                    entity.setDatos(json);
-                    entity.setLatitud(mLocalizacion.getLatitude());
-                    entity.setLongitud(mLocalizacion.getLongitude());
-
-                    final Relevamiento relevamiento = tableRelevamiento.insert(entity).get();
-
-                    if(mListener!=null){
-                        mListener.onItemSaved(relevamiento);
-                    }
-
-                } catch (Exception e){
-                    MessageHelper.createAndShowDialog(getActivity(), e, "Error");
-                }
-
-                return null;
-            }
-        }.execute();
-
 
     }
 

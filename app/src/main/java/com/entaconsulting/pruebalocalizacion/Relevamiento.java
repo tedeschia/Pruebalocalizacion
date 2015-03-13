@@ -6,7 +6,7 @@ import android.os.Parcelable;
 import java.io.Serializable;
 import java.util.Date;
 
-public class Relevamiento implements Serializable {
+public class Relevamiento implements Parcelable {
 
     @com.google.gson.annotations.SerializedName("id")
     private String mId;
@@ -41,7 +41,7 @@ public class Relevamiento implements Serializable {
 
     @Override
     public boolean equals(Object o) {
-        return o instanceof Relevamiento && ((Relevamiento) o).mId == mId;
+        return o instanceof Relevamiento && ((Relevamiento) o).mId.equals(mId);
     }
 
 
@@ -93,10 +93,48 @@ public class Relevamiento implements Serializable {
         this.mDireccion = mDireccion;
     }
 
+    /*
+    IMPLEMENTACION PARCELABLE
+     */
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeString(mId);
+        dest.writeString(mDatos);
+        dest.writeSerializable(mFecha);
+        dest.writeString(mDireccion);
+        dest.writeString(mDireccionEstado);
+        dest.writeDouble(mLatitud);
+        dest.writeDouble(mLongitud);
+    }
+    public static final Parcelable.Creator<Relevamiento> CREATOR = new Parcelable.Creator<Relevamiento>() {
+        public Relevamiento createFromParcel(Parcel pc) {
+            return new Relevamiento(pc);
+        }
+        public Relevamiento[] newArray(int size) {
+            return new Relevamiento[size];
+        }
+    };
+    public Relevamiento(Parcel pc){
+        mId = pc.readString();
+        mDatos = pc.readString();
+        mFecha = (Date) pc.readSerializable();
+        mDireccion = pc.readString();
+        mDireccionEstado = pc.readString();
+        mLatitud = pc.readDouble();
+        mLongitud = pc.readDouble();
+    }
+
+
     public class EstadosDireccion{
         public static final String Pendiente = "pendiente";
         public static final String Resuelta = "resuelta";
         public static final String NoEncontrada = "noEncontrada";
         public static final String MultiplesCandidatos = "multiplesCandidatos";
+        public static final String ErrorInesperado = "errorInesperado";
     }
 }

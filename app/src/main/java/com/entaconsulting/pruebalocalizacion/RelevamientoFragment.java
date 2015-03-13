@@ -4,30 +4,39 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.location.Location;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.ResultReceiver;
 import android.support.v4.app.Fragment;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.ArrayAdapter;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.google.common.base.Optional;
-import com.microsoft.windowsazure.mobileservices.MobileServiceClient;
+import com.google.gson.JsonObject;
 import com.microsoft.windowsazure.mobileservices.table.query.Query;
 import com.microsoft.windowsazure.mobileservices.table.query.QueryOrder;
 import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
-import java.util.List;
+import com.microsoft.windowsazure.mobileservices.table.sync.operations.RemoteTableOperationProcessor;
+import com.microsoft.windowsazure.mobileservices.table.sync.operations.TableOperation;
+import com.microsoft.windowsazure.mobileservices.table.sync.push.MobileServicePushCompletionResult;
+import com.microsoft.windowsazure.mobileservices.table.sync.synchandler.MobileServiceSyncHandler;
+import com.microsoft.windowsazure.mobileservices.table.sync.synchandler.MobileServiceSyncHandlerException;
+
+import java.text.DateFormat;
+import java.util.ArrayList;
+import java.util.concurrent.ExecutionException;
 
 import static com.microsoft.windowsazure.mobileservices.table.query.QueryOperations.val;
 
@@ -46,6 +55,7 @@ public class RelevamientoFragment extends Fragment {
     private static final String ARG_PARAM1 = "param1";
     private static final String ARG_PARAM2 = "param2";
     private static final String TAG = "RelevamientoFragment";
+    private static final java.lang.String STATE_SINCRONIZANDO = "relevamiento_sincronizando";
 
     // TODO: Rename and change types of parameters
     private String mParam1;
@@ -69,6 +79,7 @@ public class RelevamientoFragment extends Fragment {
      * Progress spinner to use for table operations
      */
     private ProgressBar mProgressBar;
+    private MenuItem mAnimatedRefreshMenuItem;
 
     private OnFragmentInteractionListener mListener;
     private ProgressFilter mProgressFilter;
@@ -77,6 +88,8 @@ public class RelevamientoFragment extends Fragment {
      * Receiver registered with this activity to get the response from FetchAddressIntentService.
      */
     private AddressResultReceiver mResultReceiver;
+    private ArrayList<Relevamiento> mDatosRelevamiento;
+    private boolean mSincronizando;
 
     /**
      * Use this factory method to create a new instance of
@@ -107,15 +120,22 @@ public class RelevamientoFragment extends Fragment {
             mParam1 = getArguments().getString(ARG_PARAM1);
             mParam2 = getArguments().getString(ARG_PARAM2);
         }
+        if(savedInstanceState!=null){
+            mSincronizando = savedInstanceState.getBoolean(STATE_SINCRONIZANDO);
+        }
         setHasOptionsMenu(true);
 
         inicializarDatos();
     }
-
+    @Override
+    public void onSaveInstanceState(Bundle savedInstanceState) {
+        super.onSaveInstanceState(savedInstanceState);
+        savedInstanceState.putBoolean(STATE_SINCRONIZANDO,mSincronizando);
+    }
     private void inicializarDatos() {
 
         mProgressFilter = new ProgressFilter(getActivity());
-        mClient = new DataHelper(getActivity(),mProgressFilter);
+        mClient = new DataHelper(getActivity());//,mProgressFilter);
 
     }
 
@@ -141,8 +161,9 @@ public class RelevamientoFragment extends Fragment {
                 .orderBy("fecha", QueryOrder.Descending)
                 .top(1000);
 
+        mDatosRelevamiento = new ArrayList<>();
         // Create an adapter to bind the items with the view
-        mAdapter = new RelevamientoAdapter(context, R.layout.row_list_relevamiento);
+        mAdapter = new RelevamientoAdapter(context, R.layout.row_list_relevamiento, mDatosRelevamiento);
         ListView listViewRelevamiento = (ListView) view.findViewById(R.id.listViewRelevamiento);
         listViewRelevamiento.setAdapter(mAdapter);
 
@@ -153,15 +174,41 @@ public class RelevamientoFragment extends Fragment {
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.fragment_relevamiento_actions, menu);
+        if(mSincronizando){
+            startAnimation(menu.findItem(R.id.action_refresh));
+        }
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.action_refresh) {
-            refreshItemsFromTable();
+            startAnimation(item);
+            sincronizar();
         }
 
         return true;
+    }
+
+    private void startAnimation(MenuItem item) {
+        mAnimatedRefreshMenuItem = item;
+
+        LayoutInflater inflater = getActivity().getLayoutInflater();
+        ImageView iv = (ImageView) inflater.inflate(R.layout.action_refresh_image, null);
+
+        Animation rotation = AnimationUtils.loadAnimation(getActivity(), R.anim.refresh_rotate);
+        rotation.setRepeatCount(Animation.INFINITE);
+        iv.startAnimation(rotation);
+
+        item.setActionView(iv);
+    }
+    private void stopAnimation(){
+        if(mAnimatedRefreshMenuItem!=null) {
+            View actionView = mAnimatedRefreshMenuItem.getActionView();
+            if (actionView != null) {
+                actionView.clearAnimation();
+                mAnimatedRefreshMenuItem.setActionView(null);
+            }
+        }
     }
 
     @Override
@@ -190,16 +237,12 @@ public class RelevamientoFragment extends Fragment {
             @Override
             protected Void doInBackground(Void... params) {
                 try {
-                    final List<Relevamiento> results =
-                            mRelevamientoTable.read(mPullQuery).get();
+                    mDatosRelevamiento.clear();
+                    mDatosRelevamiento.addAll(mRelevamientoTable.read(mPullQuery).get());
                     getActivity().runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            mAdapter.clear();
-
-                            for (Relevamiento item : results) {
-                                mAdapter.add(item);
-                            }
+                            mAdapter.notifyDataSetChanged();
                         }
                     });
                 } catch (Exception e){
@@ -220,8 +263,8 @@ public class RelevamientoFragment extends Fragment {
             @Override
             protected Void doInBackground(Void... params) {
                 try {
-                    mClient.getClient().getSyncContext().push().get();
-                    mRelevamientoTable.pull(mPullQuery).get();
+                    //mClient.getClient().getSyncContext().push().get();
+                    //mRelevamientoTable.pull(mPullQuery).get();
                     loadItemsFromTable();
                 } catch (Exception e){
                     MessageHelper.createAndShowDialog(getActivity(), e, "Error");
@@ -241,17 +284,19 @@ public class RelevamientoFragment extends Fragment {
         //la dirección está pendiente hasta que se resuelva
         relevamiento.setDireccionEstado(Relevamiento.EstadosDireccion.Pendiente);
 
-        final MobileServiceSyncTable<Relevamiento> tableRelevamiento = mClient.getClient().getSyncTable(Relevamiento.class);
         new AsyncTask<Void, Void, Void>(){
             @Override
             protected Void doInBackground(Void... params) {
                 try {
-                    final Relevamiento entity = tableRelevamiento.insert(relevamiento).get();
+                    final Relevamiento entity = mRelevamientoTable.insert(relevamiento).get();
+
                     getActivity().runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
                             mAdapter.insert(entity, 0);
-                            buscarDireccion(entity);
+                            if(ConnectivityHelper.isConnected(getActivity())) {
+                                sincronizar();
+                            }
                         }
                     });
                 }catch (Exception e){
@@ -263,41 +308,40 @@ public class RelevamientoFragment extends Fragment {
         }.execute();
     }
 
-    public void updateItem(final Relevamiento relevamiento){
-        final MobileServiceSyncTable<Relevamiento> tableRelevamiento = mClient.getClient().getSyncTable(Relevamiento.class);
-        new AsyncTask<Void, Void, Void>(){
-            @Override
-            protected Void doInBackground(Void... params) {
-                try {
-                    tableRelevamiento.update(relevamiento).get();
-                }catch (Exception e){
-                    MessageHelper.createAndShowDialog(getActivity(), e, "Error");
-                }
-
-                return null;
+    public void updateItems(final ArrayList<Relevamiento> relevamientos){
+        for(Relevamiento relevamiento:relevamientos){
+            int pos = mDatosRelevamiento.indexOf(relevamiento);
+            if(pos>=0){
+                mDatosRelevamiento.set(pos, relevamiento);
             }
-        }.execute();
-
+        }
         mAdapter.notifyDataSetChanged();
     }
 
-    private void buscarDireccion(Relevamiento relevamiento) {
+    private void sincronizar() {
+
+        if(!ConnectivityHelper.isConnected(getActivity())){
+            stopAnimation();
+            MessageHelper.createAndShowDialog(getActivity(),"No se encuentra conectado","Error");
+            return;
+        }
+
+        mSincronizando = true;
 
         // Create an intent for passing to the intent service responsible for fetching the address.
         Intent intent = new Intent(getActivity(), FetchAdressIntentService.class);
 
-        AddressResultReceiver resultReceiver = new AddressResultReceiver(new Handler(), relevamiento);
-        // Pass the result receiver as an extra to the service.
-        intent.putExtra(FetchAdressIntentService.Constants.RECEIVER, resultReceiver);
+        if(mResultReceiver==null)
+            mResultReceiver = new AddressResultReceiver(new Handler());
 
-        // Pass the location data as an extra to the service.
-        intent.putExtra(FetchAdressIntentService.Constants.LOCATION_LAT_DATA_EXTRA, relevamiento.getLatitud());
-        intent.putExtra(FetchAdressIntentService.Constants.LOCATION_LON_DATA_EXTRA, relevamiento.getLongitud());
+        // Pass the result receiver as an extra to the service.
+        intent.putExtra(FetchAdressIntentService.Constants.RECEIVER, mResultReceiver);
 
         // Start the service. If the service isn't already running, it is instantiated and started
         // (creating a process for it if needed); if it is running then it remains running. The
         // service kills itself automatically once all intents are processed.
         getActivity().startService(intent);
+
     }
 
 
@@ -329,8 +373,8 @@ public class RelevamientoFragment extends Fragment {
          */
         int mLayoutResourceId;
 
-        public RelevamientoAdapter(Context context, int layoutResourceId) {
-            super(context, layoutResourceId);
+        public RelevamientoAdapter(Context context, int layoutResourceId, ArrayList<Relevamiento> datos) {
+            super(context, layoutResourceId, datos);
 
             mContext = context;
             mLayoutResourceId = layoutResourceId;
@@ -352,7 +396,7 @@ public class RelevamientoFragment extends Fragment {
 
             row.setTag(currentItem);
             final TextView textDate = (TextView) row.findViewById(R.id.relevamiento_date);
-            textDate.setText(currentItem.getFecha().toString());
+            textDate.setText(DateFormat.getDateTimeInstance().format(currentItem.getFecha()));
 
             final TextView textAddress = (TextView) row.findViewById(R.id.relevamiento_address);
             String addressText;
@@ -381,11 +425,8 @@ public class RelevamientoFragment extends Fragment {
      */
     class AddressResultReceiver extends ResultReceiver {
 
-        private final Relevamiento mRelevamiento;
-
-        public AddressResultReceiver(Handler handler, Relevamiento relevamiento) {
+        public AddressResultReceiver(Handler handler) {
             super(handler);
-            mRelevamiento = relevamiento;
         }
 
         /**
@@ -394,17 +435,28 @@ public class RelevamientoFragment extends Fragment {
         @Override
         protected void onReceiveResult(int resultCode, Bundle resultData) {
 
-            // Display the address string or an error message sent from the intent service.
-            String addressOutput = resultData.getString(FetchAdressIntentService.Constants.RESULT_DATA_KEY);
 
-            // Show a toast message if an address was found.
-            if (resultCode == FetchAdressIntentService.Constants.SUCCESS_RESULT) {
-                mRelevamiento.setDireccionEstado(Relevamiento.EstadosDireccion.Resuelta);
-                mRelevamiento.setDireccion(addressOutput);
-                updateItem(mRelevamiento);
+            switch (resultCode) {
+                case FetchAdressIntentService.Constants.PROGRESS_RESULT:
+                    break;
+                case FetchAdressIntentService.Constants.SUCCESS_RESULT:
+                    // Display the address string or an error message sent from the intent service.
+                    //ArrayList<Relevamiento> resultado = resultData.getParcelableArrayList(FetchAdressIntentService.Constants.RESULT_DATA_KEY);
+                    //updateItems(resultado);
+                    loadItemsFromTable();
+                    break;
+                default:
+                    String message = resultData.getString(FetchAdressIntentService.Constants.RESULT_DATA_KEY);
+                    MessageHelper.createAndShowDialog(getActivity(), message, "Error");
             }
+            // Show a toast message if an address was found.
+
+            mSincronizando=false;
+
+            stopAnimation();
 
         }
     }
+
 }
 
