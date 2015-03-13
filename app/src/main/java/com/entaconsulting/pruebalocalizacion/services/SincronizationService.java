@@ -4,7 +4,6 @@ import android.app.IntentService;
 import android.content.Intent;
 import android.location.Address;
 import android.location.Geocoder;
-import android.os.ResultReceiver;
 import android.support.v4.content.LocalBroadcastManager;
 import android.text.TextUtils;
 
@@ -12,9 +11,7 @@ import com.entaconsulting.pruebalocalizacion.R;
 import com.entaconsulting.pruebalocalizacion.models.Relevamiento;
 import com.entaconsulting.pruebalocalizacion.helpers.ConnectivityHelper;
 import com.entaconsulting.pruebalocalizacion.helpers.DataHelper;
-import com.entaconsulting.pruebalocalizacion.receivers.AlarmReceiver;
 import com.microsoft.windowsazure.mobileservices.table.query.ExecutableQuery;
-import com.microsoft.windowsazure.mobileservices.table.query.Query;
 import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
 
 import java.io.IOException;
@@ -29,11 +26,8 @@ import java.util.concurrent.ExecutionException;
 public class SincronizationService extends IntentService {
     private static final String TAG = "com.entaconsulting.pruebalocalizacion.FetchAdressIntentService";
 
-    protected ResultReceiver mReceiver;
     private DataHelper mClient;
     private MobileServiceSyncTable<Relevamiento> mRelevamientoTable;
-    private Query mPullQuery;
-    private AlarmReceiver mAlarm;
     private int mTotalSteps;
     private int mCurrentStep;
 
@@ -64,10 +58,9 @@ public class SincronizationService extends IntentService {
             if(mClient==null) {
                 mClient = new DataHelper(getApplicationContext());
                 mRelevamientoTable = mClient.getClient().getSyncTable(Relevamiento.class);
-                /*mPullQuery = mClient.getClient().getTable(Relevamiento.class)
-                        .orderBy("fecha", QueryOrder.Descending)
-                        .top(1000);*/
             }
+
+            broadcastStart();
 
             ArrayList<Relevamiento> pendientes = getPendientes();
 
@@ -162,21 +155,27 @@ public class SincronizationService extends IntentService {
     }
     private void broadcastError(String message) {
         Intent intent = new Intent(Constants.BROADCAST_ACTION)
-            .putExtra(Constants.STATUS_DATA_EXTRA,Constants.FAILURE_RESULT)
+            .putExtra(Constants.STATUS_DATA_EXTRA,Constants.SERVICE_STATUS_FAILURE)
             .putExtra(Constants.RESULT_DATA_KEY, message);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
     private void broadcastSuccess() {
         Intent intent = new Intent(Constants.BROADCAST_ACTION)
-                .putExtra(Constants.STATUS_DATA_EXTRA,Constants.SUCCESS_RESULT);
+                .putExtra(Constants.STATUS_DATA_EXTRA, Constants.SERVICE_STATUS_SUCCESS);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+    }
+
+    private void broadcastStart() {
+        Intent intent = new Intent(Constants.BROADCAST_ACTION)
+                .putExtra(Constants.STATUS_DATA_EXTRA,Constants.SERVICE_STATUS_START);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
     private void broadcastProgress(Relevamiento relevamiento) {
         mCurrentStep++;
         Intent intent = new Intent(Constants.BROADCAST_ACTION)
-                .putExtra(Constants.STATUS_DATA_EXTRA,Constants.PROGRESS_RESULT)
+                .putExtra(Constants.STATUS_DATA_EXTRA,Constants.SERVICE_STATUS_PROGRESS)
                 .putExtra(Constants.PROGRESS_DATA_EXTRA, mCurrentStep * 1.0 / mTotalSteps)
                 .putExtra(Constants.RELEVAMIENTO_DATA_EXTRA, relevamiento);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
@@ -192,9 +191,11 @@ public class SincronizationService extends IntentService {
     }
 
     public final class Constants {
-        public static final int SUCCESS_RESULT = 0;
-        public static final int FAILURE_RESULT = 1;
-        public static final int PROGRESS_RESULT = 2;
+        public static final int SERVICE_STATUS_SUCCESS = 0;
+        public static final int SERVICE_STATUS_FAILURE = 1;
+        public static final int SERVICE_STATUS_PROGRESS = 2;
+        public static final int SERVICE_STATUS_START = 3;
+
         public static final String PACKAGE_NAME =
                 "com.google.android.gms.location.sample.locationaddress";
         public static final String RECEIVER = PACKAGE_NAME + ".RECEIVER";

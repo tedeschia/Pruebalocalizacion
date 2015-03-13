@@ -147,7 +147,7 @@ public class RelevamientoActivity extends FragmentActivity
             mAddressOutput = resultData.getString(SincronizationService.Constants.RESULT_DATA_KEY);
 
             // Show a toast message if an address was found.
-            if (resultCode == SincronizationService.Constants.SUCCESS_RESULT) {
+            if (resultCode == SincronizationService.Constants.SERVICE_STATUS_SUCCESS) {
                 MessageHelper.createAndShowDialog(getParent(),mAddressOutput,"Direccion");
             }
 

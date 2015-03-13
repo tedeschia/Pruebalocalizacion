@@ -326,8 +326,6 @@ public class RelevamientoFragment extends Fragment {
 
     private void startSyncService() {
 
-        mProgressBar.setVisibility(ProgressBar.VISIBLE);
-        mProgressBar.setProgress(0);
         // Create an intent for passing to the intent service responsible for fetching the address.
         Intent intent = new Intent(getActivity(), SincronizationService.class);
 
@@ -435,7 +433,11 @@ public class RelevamientoFragment extends Fragment {
 
 
             switch (resultCode) {
-                case SincronizationService.Constants.PROGRESS_RESULT:
+                case SincronizationService.Constants.SERVICE_STATUS_START:
+                    mProgressBar.setVisibility(ProgressBar.VISIBLE);
+                    mProgressBar.setProgress(0);
+                    break;
+                case SincronizationService.Constants.SERVICE_STATUS_PROGRESS:
                     double progress = intent.getDoubleExtra(SincronizationService.Constants.PROGRESS_DATA_EXTRA,1);
 
                     mProgressBar.setVisibility(ProgressBar.VISIBLE);
@@ -446,10 +448,10 @@ public class RelevamientoFragment extends Fragment {
                         updateItem(relevamientoActualizado);
                     }
                     break;
-                case SincronizationService.Constants.SUCCESS_RESULT:
+                case SincronizationService.Constants.SERVICE_STATUS_SUCCESS:
                     endSyncService();
                     break;
-                case SincronizationService.Constants.FAILURE_RESULT:
+                case SincronizationService.Constants.SERVICE_STATUS_FAILURE:
                     String message = intent.getStringExtra(SincronizationService.Constants.RESULT_DATA_KEY);
                     MessageHelper.createAndShowDialog(getActivity(), message, "Error");
                     endSyncService();
