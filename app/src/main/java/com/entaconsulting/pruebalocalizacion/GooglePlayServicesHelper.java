@@ -136,7 +136,6 @@ public class GooglePlayServicesHelper implements
      */
     @Override
     public void onConnectionSuspended(int cause) {
-        Log.i(TAG, "GoogleApiClient connection suspended");
         retryConnecting();
     }
 
@@ -168,7 +167,6 @@ public class GooglePlayServicesHelper implements
         try {
             result.startResolutionForResult(mActivity, REQUEST_CODE_RESOLUTION);
         } catch (SendIntentException e) {
-            Log.e(TAG, "Exception while starting resolution activity", e);
             retryConnecting();
         }
     }

@@ -18,8 +18,6 @@ public class MessageHelper{
                     toast.show();
                 }
             });
-        } else {
-            Log.e(TAG, message);
         }
 
     }

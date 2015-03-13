@@ -84,7 +84,6 @@ public class FetchAdressIntentService extends IntentService {
             broadcastSuccess();
 
         } catch (Exception e) {
-            Log.e(TAG, e.getMessage());
             e.printStackTrace();
             broadcastError(e.getMessage());
 
