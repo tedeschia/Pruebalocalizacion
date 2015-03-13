@@ -7,6 +7,8 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import com.entaconsulting.pruebalocalizacion.models.Relevamiento;
+
 
 public class RelevamientoDetalleActivity extends FragmentActivity
         implements RelevamientoDetalleFragment.OnFragmentInteractionListener {

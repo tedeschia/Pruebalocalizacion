@@ -1,4 +1,4 @@
-package com.entaconsulting.pruebalocalizacion;
+package com.entaconsulting.pruebalocalizacion.helpers;
 
 import android.app.Activity;
 import android.util.Log;

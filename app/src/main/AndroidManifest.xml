@@ -41,11 +41,11 @@
         </activity>
 
         <service
-            android:name=".FetchAdressIntentService"
+            android:name=".services.SincronizationService"
             android:exported="false"/>
 
-        <receiver android:name=".AlarmReceiver"></receiver>
-        <receiver android:name=".BootReceiver"
+        <receiver android:name=".receivers.AlarmReceiver"></receiver>
+        <receiver android:name=".receivers.BootReceiver"
             android:enabled="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

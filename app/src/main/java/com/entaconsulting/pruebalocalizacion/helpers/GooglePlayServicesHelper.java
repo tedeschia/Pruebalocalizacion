@@ -1,4 +1,4 @@
-package com.entaconsulting.pruebalocalizacion;
+package com.entaconsulting.pruebalocalizacion.helpers;
 
 import android.app.Activity;
 import android.content.Context;
@@ -81,7 +81,7 @@ public class GooglePlayServicesHelper implements
      * Called when activity gets invisible. Connection to Play Services needs to
      * be disconnected as soon as an activity is invisible.
      */
-    protected void stop() {
+    public void stop() {
         if (mGoogleApiClient != null) {
             mGoogleApiClient.disconnect();
         }

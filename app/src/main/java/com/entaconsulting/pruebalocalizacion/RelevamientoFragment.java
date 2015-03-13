@@ -24,6 +24,11 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import com.entaconsulting.pruebalocalizacion.helpers.ConnectivityHelper;
+import com.entaconsulting.pruebalocalizacion.helpers.DataHelper;
+import com.entaconsulting.pruebalocalizacion.helpers.MessageHelper;
+import com.entaconsulting.pruebalocalizacion.models.Relevamiento;
+import com.entaconsulting.pruebalocalizacion.services.SincronizationService;
 import com.google.common.base.Optional;
 import com.microsoft.windowsazure.mobileservices.table.query.Query;
 import com.microsoft.windowsazure.mobileservices.table.query.QueryOrder;
@@ -118,7 +123,7 @@ public class RelevamientoFragment extends Fragment {
     private void registerBroadcastReceiver() {
         // The filter's action is BROADCAST_ACTION
         IntentFilter mStatusIntentFilter = new IntentFilter(
-                FetchAdressIntentService.Constants.BROADCAST_ACTION);
+                SincronizationService.Constants.BROADCAST_ACTION);
         // Instantiates a new DownloadStateReceiver
         AddressResultReceiver mAddressReceiver =
                 new AddressResultReceiver();
@@ -326,7 +331,7 @@ public class RelevamientoFragment extends Fragment {
         mProgressBar.setVisibility(ProgressBar.VISIBLE);
         mProgressBar.setProgress(0);
         // Create an intent for passing to the intent service responsible for fetching the address.
-        Intent intent = new Intent(getActivity(), FetchAdressIntentService.class);
+        Intent intent = new Intent(getActivity(), SincronizationService.class);
 
         // Start the service. If the service isn't already running, it is instantiated and started
         // (creating a process for it if needed); if it is running then it remains running. The
@@ -428,26 +433,26 @@ public class RelevamientoFragment extends Fragment {
         @Override
         public void onReceive(Context context, Intent intent) {
 
-            int resultCode = intent.getIntExtra(FetchAdressIntentService.Constants.STATUS_DATA_EXTRA,-1);
+            int resultCode = intent.getIntExtra(SincronizationService.Constants.STATUS_DATA_EXTRA,-1);
 
 
             switch (resultCode) {
-                case FetchAdressIntentService.Constants.PROGRESS_RESULT:
-                    double progress = intent.getDoubleExtra(FetchAdressIntentService.Constants.PROGRESS_DATA_EXTRA,1);
+                case SincronizationService.Constants.PROGRESS_RESULT:
+                    double progress = intent.getDoubleExtra(SincronizationService.Constants.PROGRESS_DATA_EXTRA,1);
 
                     mProgressBar.setVisibility(ProgressBar.VISIBLE);
                     mProgressBar.setProgress((int)(progress * 100));
 
-                    Relevamiento relevamientoActualizado = intent.getParcelableExtra(FetchAdressIntentService.Constants.RELEVAMIENTO_DATA_EXTRA);
+                    Relevamiento relevamientoActualizado = intent.getParcelableExtra(SincronizationService.Constants.RELEVAMIENTO_DATA_EXTRA);
                     if(relevamientoActualizado!=null){
                         updateItem(relevamientoActualizado);
                     }
                     break;
-                case FetchAdressIntentService.Constants.SUCCESS_RESULT:
+                case SincronizationService.Constants.SUCCESS_RESULT:
                     endSyncService();
                     break;
-                case FetchAdressIntentService.Constants.FAILURE_RESULT:
-                    String message = intent.getStringExtra(FetchAdressIntentService.Constants.RESULT_DATA_KEY);
+                case SincronizationService.Constants.FAILURE_RESULT:
+                    String message = intent.getStringExtra(SincronizationService.Constants.RESULT_DATA_KEY);
                     MessageHelper.createAndShowDialog(getActivity(), message, "Error");
                     endSyncService();
             }

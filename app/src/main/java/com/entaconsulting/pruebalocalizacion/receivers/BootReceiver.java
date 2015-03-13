@@ -1,10 +1,10 @@
-package com.entaconsulting.pruebalocalizacion;
+package com.entaconsulting.pruebalocalizacion.receivers;
 
-import android.app.AlarmManager;
-import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+
+import com.entaconsulting.pruebalocalizacion.receivers.AlarmReceiver;
 
 public class BootReceiver extends BroadcastReceiver {
 

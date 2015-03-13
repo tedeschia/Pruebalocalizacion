@@ -6,8 +6,9 @@ import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Color;
 import android.location.Location;
-import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.support.v4.app.Fragment;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -19,14 +20,13 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
 
+import com.entaconsulting.pruebalocalizacion.models.Relevamiento;
 import com.google.gson.Gson;
-import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -90,9 +90,9 @@ public class RelevamientoDetalleFragment extends Fragment {
 
         leerConfiguracion();
 
-        if(savedInstanceState!=null){
+        if (savedInstanceState != null) {
             mDatosRelevamiento = datosBdAVista((DatoRelevamientoPublicidad[]) savedInstanceState.getSerializable(STATE_DATOS_RELEVAMIENTO));
-        }else{
+        } else {
             mDatosRelevamiento = datosBdAVista(null);
         }
     }
@@ -113,15 +113,15 @@ public class RelevamientoDetalleFragment extends Fragment {
 
     private HashMap<String, DatoRelevamientoPublicidad> datosBdAVista(DatoRelevamientoPublicidad[] datosIniciales) {
         HashMap<String, DatoRelevamientoPublicidad> datos = new HashMap<>();
-        if(datosIniciales==null) {
+        if (datosIniciales == null) {
             for (String mMaterial : mMateriales) {
                 for (String mCandidato : mCandidatos) {
                     DatoRelevamientoPublicidad dato = new DatoRelevamientoPublicidad(mCandidato, mMaterial, 0);
                     datos.put(getKey(dato.getCandidato(), dato.getMaterial()), dato);
                 }
             }
-        }else{
-            for(DatoRelevamientoPublicidad dato:datosIniciales){
+        } else {
+            for (DatoRelevamientoPublicidad dato : datosIniciales) {
                 datos.put(getKey(dato.getCandidato(), dato.getMaterial()), dato);
             }
         }
@@ -129,14 +129,15 @@ public class RelevamientoDetalleFragment extends Fragment {
     }
 
     private String getKey(String candidato, String material) {
-        return candidato+material;
+        return candidato + material;
     }
 
-    private void leerConfiguracion(){
+    private void leerConfiguracion() {
         Resources res = getResources();
         mCandidatos = res.getStringArray(R.array.candidatos_array);
         mMateriales = res.getStringArray(R.array.materiales_array);
     }
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -157,11 +158,12 @@ public class RelevamientoDetalleFragment extends Fragment {
     public boolean onOptionsItemSelected(MenuItem item) {
 
 
-        switch(item.getItemId()){
+        switch (item.getItemId()) {
             case R.id.action_save:
                 guardar();
                 return true;
-            default: return super.onOptionsItemSelected(item);
+            default:
+                return super.onOptionsItemSelected(item);
         }
     }
 
@@ -171,7 +173,7 @@ public class RelevamientoDetalleFragment extends Fragment {
         relevamiento.setDatos(json);
         relevamiento.setLatitud(mLocalizacion.getLatitude());
         relevamiento.setLongitud(mLocalizacion.getLongitude());
-        if(mListener!=null){
+        if (mListener != null) {
             mListener.onItemSaved(relevamiento);
         }
 
@@ -189,22 +191,22 @@ public class RelevamientoDetalleFragment extends Fragment {
         int[] gradosCumplimientoInt = res.getIntArray(R.array.grado_cumplimiento_array);
         Integer[] gradosCumplimiento = new Integer[gradosCumplimientoInt.length];
         for (int i = 0; i < gradosCumplimientoInt.length; i++) {
-            gradosCumplimiento[i]= gradosCumplimientoInt[i];
+            gradosCumplimiento[i] = gradosCumplimientoInt[i];
         }
 
 
         TableRow.LayoutParams tableRowParams = new TableRow.LayoutParams();
 
         //Cabecera de la tabla
-        TableRow tableRow = (TableRow)inflater.inflate(R.layout.table_row_relevamiento,tableLayout,false);
+        TableRow tableRow = (TableRow) inflater.inflate(R.layout.table_row_relevamiento, tableLayout, false);
         tableRow.setId(ViewId.getInstance().getUniqueId());
 
-        TextView rowHeaderText=new TextView(context);
+        TextView rowHeaderText = new TextView(context);
         rowHeaderText.setId(ViewId.getInstance().getUniqueId());
         rowHeaderText.setText("");
         tableRow.addView(rowHeaderText);
-        for (int j= 0; j < mCandidatos.length; j++) {
-            View candidatoView = GradoCumplimientoViewHelper.GetGradoCumplimientoView(candidatosColores.getColor(j,0), inflater,tableRow);
+        for (int j = 0; j < mCandidatos.length; j++) {
+            View candidatoView = GradoCumplimientoViewHelper.GetGradoCumplimientoView(candidatosColores.getColor(j, 0), inflater, tableRow);
             candidatoView.setId(ViewId.getInstance().getUniqueId());
             tableRow.addView(candidatoView);
         }
@@ -239,7 +241,7 @@ public class RelevamientoDetalleFragment extends Fragment {
         Spinner spinner = new Spinner(context);
         spinner.setId(ViewId.getInstance().getUniqueId());
 
-        GradoCumplimientoAdapter adapter = new GradoCumplimientoAdapter(context, android.R.layout.simple_spinner_item,gradosCumplimiento, color);
+        GradoCumplimientoAdapter adapter = new GradoCumplimientoAdapter(context, android.R.layout.simple_spinner_item, gradosCumplimiento, color);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
         spinner.setSelection(dato.getCumplimiento());
@@ -301,10 +303,10 @@ public class RelevamientoDetalleFragment extends Fragment {
             super(ctx, txtViewResourceId, grados);
             //mObjects = objects;
             mBaseColor = baseColor;
-            mMaxGrado=0;
+            mMaxGrado = 0;
             for (Integer grado : grados) {
-                if(grado>mMaxGrado)
-                    mMaxGrado=grado;
+                if (grado > mMaxGrado)
+                    mMaxGrado = grado;
             }
 
         }
@@ -321,19 +323,19 @@ public class RelevamientoDetalleFragment extends Fragment {
 
         public View getCustomView(int position, View convertView, ViewGroup parent) {
             LayoutInflater inflater = getActivity().getLayoutInflater();
-            return GradoCumplimientoViewHelper.GetGradoCumplimientoView(mBaseColor,getItem(position),mMaxGrado,inflater, parent);
+            return GradoCumplimientoViewHelper.GetGradoCumplimientoView(mBaseColor, getItem(position), mMaxGrado, inflater, parent);
         }
     }
 
-    public static class GradoCumplimientoViewHelper{
+    public static class GradoCumplimientoViewHelper {
         private static final double MIN_RATIO_CUMPLIMIENTO = 0.15;
 
-        public static View GetGradoCumplimientoView(int baseColor, int gradoCumplimiento, int maxGradoCumplimiento, LayoutInflater inflater, ViewGroup parent){
+        public static View GetGradoCumplimientoView(int baseColor, int gradoCumplimiento, int maxGradoCumplimiento, LayoutInflater inflater, ViewGroup parent) {
             View view = inflater.inflate(R.layout.spinner_grado_cumplimiento, parent, false);
             view.setId(ViewId.getInstance().getUniqueId());
 
             double ratioCumplimiento = 0;//(float)gradoCumplimiento / maxGradoCumplimiento;
-            if(gradoCumplimiento>0) {
+            if (gradoCumplimiento > 0) {
                 if (gradoCumplimiento < maxGradoCumplimiento) {
                     ratioCumplimiento = MIN_RATIO_CUMPLIMIENTO +
                             ((gradoCumplimiento - 1.0) / (maxGradoCumplimiento - 1.0)) * (1.0 - MIN_RATIO_CUMPLIMIENTO);
@@ -351,7 +353,7 @@ public class RelevamientoDetalleFragment extends Fragment {
         }
 
         public static View GetGradoCumplimientoView(int color, LayoutInflater inflater, ViewGroup parent) {
-            return GetGradoCumplimientoView(color, 1,1,inflater,parent);
+            return GetGradoCumplimientoView(color, 1, 1, inflater, parent);
         }
     }
 
@@ -374,6 +376,66 @@ public class RelevamientoDetalleFragment extends Fragment {
         }
     }
 
+    public class DatoRelevamientoPublicidad implements Parcelable {
+
+        @com.google.gson.annotations.SerializedName("candidato")
+        private String mCandidato;
+        @com.google.gson.annotations.SerializedName("material")
+        private String mMaterial;
+        @com.google.gson.annotations.SerializedName("cumplimiento")
+        private int mCumplimiento;
+
+        public DatoRelevamientoPublicidad() {
+
+        }
+
+        public DatoRelevamientoPublicidad(String candidato, String material, int cumplimiento) {
+            setCandidato(candidato);
+            setMaterial(material);
+            setCumplimiento(cumplimiento);
+        }
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel dest, int flags) {
+            dest.writeString(getCandidato());
+            dest.writeString(getMaterial());
+            dest.writeInt(getCumplimiento());
+
+        }
+
+        public String getCandidato() {
+            return mCandidato;
+        }
+
+        public void setCandidato(String candidato) {
+            mCandidato = candidato;
+        }
+
+        public String getMaterial() {
+            return mMaterial;
+        }
+
+        public void setMaterial(String mMaterial) {
+            this.mMaterial = mMaterial;
+        }
+
+        public int getCumplimiento() {
+            return mCumplimiento;
+        }
+
+        public void setCumplimiento(int mCumplimiento) {
+            this.mCumplimiento = mCumplimiento;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof DatoRelevamientoPublicidad && ((DatoRelevamientoPublicidad) o).mCandidato == mCandidato;
+        }
+   }
+
 }
-
-

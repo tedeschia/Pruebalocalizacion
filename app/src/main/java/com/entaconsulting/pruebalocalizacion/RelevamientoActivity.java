@@ -10,6 +10,11 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
+import com.entaconsulting.pruebalocalizacion.helpers.GooglePlayServicesHelper;
+import com.entaconsulting.pruebalocalizacion.helpers.MessageHelper;
+import com.entaconsulting.pruebalocalizacion.models.Relevamiento;
+import com.entaconsulting.pruebalocalizacion.services.SincronizationService;
+
 public class RelevamientoActivity extends FragmentActivity
         implements RelevamientoFragment.OnFragmentInteractionListener,
         GooglePlayServicesHelper.OnConnectedCallback
@@ -101,7 +106,7 @@ public class RelevamientoActivity extends FragmentActivity
     public void addRelevamiento() {
         Location location = getLastKnownLocation();
         if(location == null){
-            MessageHelper.createAndShowDialog(this, "No se ha podido obtener la localización, no se pueden registrar datos sin la posición geográfica","Error");
+            MessageHelper.createAndShowDialog(this, "No se ha podido obtener la localización, no se pueden registrar datos sin la posición geográfica", "Error");
             return;
         }
 
@@ -139,10 +144,10 @@ public class RelevamientoActivity extends FragmentActivity
 
             // Display the address string
             // or an error message sent from the intent service.
-            mAddressOutput = resultData.getString(FetchAdressIntentService.Constants.RESULT_DATA_KEY);
+            mAddressOutput = resultData.getString(SincronizationService.Constants.RESULT_DATA_KEY);
 
             // Show a toast message if an address was found.
-            if (resultCode == FetchAdressIntentService.Constants.SUCCESS_RESULT) {
+            if (resultCode == SincronizationService.Constants.SUCCESS_RESULT) {
                 MessageHelper.createAndShowDialog(getParent(),mAddressOutput,"Direccion");
             }
 

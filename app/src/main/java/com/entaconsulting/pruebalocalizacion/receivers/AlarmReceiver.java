@@ -1,4 +1,4 @@
-package com.entaconsulting.pruebalocalizacion;
+package com.entaconsulting.pruebalocalizacion.receivers;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -8,7 +8,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.SystemClock;
-import android.util.Log;
+
+import com.entaconsulting.pruebalocalizacion.services.SincronizationService;
 
 import java.util.Calendar;
 
@@ -20,7 +21,7 @@ public class AlarmReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        Intent intentService = new Intent(context, FetchAdressIntentService.class);
+        Intent intentService = new Intent(context, SincronizationService.class);
         context.startService(intentService);
     }
 
