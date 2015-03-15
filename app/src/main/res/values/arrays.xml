@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <integer-array name="grado_cumplimiento_array">
-        <item>0</item>
-        <item>1</item>
-        <item>2</item>
-    </integer-array>
+    <string-array name="grado_cumplimiento_array">
+        <item>Nada</item>
+        <item>Algo</item>
+        <item>Mucho</item>
+    </string-array>
     <string-array name="materiales_array">
         <item>Policarbonato</item>
         <item>Barrilete</item>

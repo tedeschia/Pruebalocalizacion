@@ -28,6 +28,8 @@ import android.widget.TextView;
 import com.entaconsulting.pruebalocalizacion.models.Relevamiento;
 import com.google.gson.Gson;
 
+import org.w3c.dom.Text;
+
 import java.util.Date;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -179,11 +181,11 @@ public class RelevamientoDetalleFragment extends Fragment {
         Resources res = getResources();
 
         TypedArray candidatosColores = res.obtainTypedArray(R.array.candidatos_colores_array);
-        int[] gradosCumplimientoInt = res.getIntArray(R.array.grado_cumplimiento_array);
-        Integer[] gradosCumplimiento = new Integer[gradosCumplimientoInt.length];
-        for (int i = 0; i < gradosCumplimientoInt.length; i++) {
-            gradosCumplimiento[i] = gradosCumplimientoInt[i];
-        }
+        String[] gradosCumplimientoStr = res.getStringArray(R.array.grado_cumplimiento_array);
+        //String[] gradosCumplimiento = new String[gradosCumplimientoStr.length];
+        //for (int i = 0; i < gradosCumplimientoStr.length; i++) {
+        //    gradosCumplimiento[i] = gradosCumplimientoStr[i];
+        //}
 
         TableRow.LayoutParams tableRowParams = new TableRow.LayoutParams();
 
@@ -195,7 +197,8 @@ public class RelevamientoDetalleFragment extends Fragment {
         rowHeaderText.setText("");
         tableRow.addView(rowHeaderText);
         for (int j = 0; j < mCandidatos.length; j++) {
-            View candidatoView = GradoCumplimientoViewHelper.GetGradoCumplimientoView(candidatosColores.getColor(j, 0), inflater, tableRow);
+            View candidatoView = inflater.inflate(R.layout.spinner_grado_cumplimiento_selected, tableRow, false);
+            candidatoView.setBackgroundColor(GradoCumplimientoViewHelper.GetGradoCumplimientoColor(candidatosColores.getColor(j, 0),1,1));
             tableRow.addView(candidatoView);
         }
         tableLayout.addView(tableRow);
@@ -214,7 +217,7 @@ public class RelevamientoDetalleFragment extends Fragment {
             for (int j = 0; j < mCandidatos.length; j++) {
 
                 DatoRelevamientoPublicidad dato = mDatosRelevamiento.get(getKey(mCandidatos[j], materiale));
-                View spinner = crearSpinner(context, candidatosColores.getColor(j, 0), gradosCumplimiento, dato);
+                View spinner = crearSpinner(context, candidatosColores.getColor(j, 0), gradosCumplimientoStr, dato);
 
                 tableRow.addView(spinner, tableRowParams);
             }
@@ -223,12 +226,12 @@ public class RelevamientoDetalleFragment extends Fragment {
         }
     }
 
-    private View crearSpinner(Context context, int color, Integer[] gradosCumplimiento, final DatoRelevamientoPublicidad dato) {
+    private View crearSpinner(Context context, int color, String[] gradosCumplimiento, final DatoRelevamientoPublicidad dato) {
         Spinner spinner = new Spinner(context);
         spinner.setId(ViewId.getInstance().getUniqueId());
 
-        GradoCumplimientoAdapter adapter = new GradoCumplimientoAdapter(context, android.R.layout.simple_spinner_item, gradosCumplimiento, color);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        GradoCumplimientoAdapter adapter = new GradoCumplimientoAdapter(context, R.layout.spinner_grado_cumplimiento_selected, gradosCumplimiento, color);
+        adapter.setDropDownViewResource(R.layout.spinner_grado_cumplimiento_items);
         spinner.setAdapter(adapter);
         spinner.setSelection(dato.getCumplimiento());
 
@@ -236,7 +239,7 @@ public class RelevamientoDetalleFragment extends Fragment {
 
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                dato.setCumplimiento((int) parent.getItemAtPosition(position));
+                dato.setCumplimiento(position);
             }
 
             @Override
@@ -279,47 +282,67 @@ public class RelevamientoDetalleFragment extends Fragment {
         void onItemSaved(Relevamiento relevamiento);
     }
 
-    public class GradoCumplimientoAdapter extends ArrayAdapter<Integer> {
+    public class GradoCumplimientoAdapter extends ArrayAdapter<String> {
 
         //private String[] mObjects;
         private int mBaseColor;
         private int mMaxGrado;
 
-        public GradoCumplimientoAdapter(Context ctx, int txtViewResourceId, Integer[] grados, int baseColor) {
+        public GradoCumplimientoAdapter(Context ctx, int txtViewResourceId, String[] grados, int baseColor) {
             super(ctx, txtViewResourceId, grados);
             //mObjects = objects;
             mBaseColor = baseColor;
-            mMaxGrado = 0;
-            for (Integer grado : grados) {
-                if (grado > mMaxGrado)
-                    mMaxGrado = grado;
-            }
-
+            mMaxGrado = grados.length-1;
         }
 
         @Override
         public View getDropDownView(int position, View cnvtView, ViewGroup prnt) {
-            return getCustomView(position, cnvtView, prnt);
+            TextView view=(TextView)cnvtView;
+            if(view==null){
+                LayoutInflater inflater = getActivity().getLayoutInflater();
+                view = (TextView)inflater.inflate(R.layout.spinner_grado_cumplimiento_items, prnt, false);
+            }
+            int color = GradoCumplimientoViewHelper.GetGradoCumplimientoColor(mBaseColor, position, mMaxGrado);
+            view.setBackgroundColor(color);
+            view.setText(getItem(position));
+            return view;
         }
 
         @Override
         public View getView(int pos, View cnvtView, ViewGroup prnt) {
-            return getCustomView(pos, cnvtView, prnt);
+            View view;
+            if(cnvtView!=null){
+                view = cnvtView;
+            } else{
+                LayoutInflater inflater = getActivity().getLayoutInflater();
+                view = inflater.inflate(R.layout.spinner_grado_cumplimiento_selected, prnt, false);
+            }
+            int color = GradoCumplimientoViewHelper.GetGradoCumplimientoColor(mBaseColor, pos, mMaxGrado);
+            view.setBackgroundColor(color);
+
+            return view;
         }
 
-        public View getCustomView(int position, View convertView, ViewGroup parent) {
-            LayoutInflater inflater = getActivity().getLayoutInflater();
-            return GradoCumplimientoViewHelper.GetGradoCumplimientoView(mBaseColor, getItem(position), mMaxGrado, inflater, parent);
-        }
+        //public View getCustomView(int position, View convertView, ViewGroup parent) {
+            //LayoutInflater inflater = getActivity().getLayoutInflater();
+            //return GradoCumplimientoViewHelper.GetGradoCumplimientoView(mBaseColor, getItem(position), mMaxGrado, inflater, parent);
+        //}
     }
 
     public static class GradoCumplimientoViewHelper {
         private static final double MIN_RATIO_CUMPLIMIENTO = 0.15;
 
         public static View GetGradoCumplimientoView(int baseColor, int gradoCumplimiento, int maxGradoCumplimiento, LayoutInflater inflater, ViewGroup parent) {
-            View view = inflater.inflate(R.layout.spinner_grado_cumplimiento, parent, false);
+            View view = inflater.inflate(R.layout.spinner_grado_cumplimiento_selected, parent, false);
             view.setId(ViewId.getInstance().getUniqueId());
 
+            int color = GetGradoCumplimientoColor(baseColor, gradoCumplimiento, maxGradoCumplimiento);
+            ImageView imgColor = (ImageView) view;
+            imgColor.setBackgroundColor(color);
+
+            return view;
+        }
+        public static int GetGradoCumplimientoColor(int baseColor, int gradoCumplimiento, int maxGradoCumplimiento) {
             double ratioCumplimiento = 0;//(float)gradoCumplimiento / maxGradoCumplimiento;
             if (gradoCumplimiento > 0) {
                 if (gradoCumplimiento < maxGradoCumplimiento) {
@@ -332,10 +355,7 @@ public class RelevamientoDetalleFragment extends Fragment {
             Double alpha = 255.0 * ratioCumplimiento;
 
             int color = Color.argb(alpha.intValue(), Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor));
-            ImageView imgColor = (ImageView) view;
-            imgColor.setBackgroundColor(color);
-
-            return view;
+            return color;
         }
 
         public static View GetGradoCumplimientoView(int color, LayoutInflater inflater, ViewGroup parent) {
