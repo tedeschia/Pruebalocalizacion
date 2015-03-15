@@ -91,7 +91,7 @@ public class RelevamientoDetalleFragment extends Fragment {
         leerConfiguracion();
 
         if (savedInstanceState != null) {
-            mDatosRelevamiento = datosBdAVista((DatoRelevamientoPublicidad[]) savedInstanceState.getSerializable(STATE_DATOS_RELEVAMIENTO));
+            mDatosRelevamiento = datosBdAVista((DatoRelevamientoPublicidad[]) savedInstanceState.getParcelableArray(STATE_DATOS_RELEVAMIENTO));
         } else {
             mDatosRelevamiento = datosBdAVista(null);
         }
@@ -99,11 +99,8 @@ public class RelevamientoDetalleFragment extends Fragment {
 
     @Override
     public void onSaveInstanceState(Bundle savedInstanceState) {
-        // Save the user's current game state
-        savedInstanceState.putSerializable(STATE_DATOS_RELEVAMIENTO, datosVistaABd());
-
-        // Always call the superclass so it can save the view hierarchy state
         super.onSaveInstanceState(savedInstanceState);
+        savedInstanceState.putParcelableArray(STATE_DATOS_RELEVAMIENTO, datosVistaABd());
     }
 
     private DatoRelevamientoPublicidad[] datosVistaABd() {
@@ -156,8 +153,6 @@ public class RelevamientoDetalleFragment extends Fragment {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-
-
         switch (item.getItemId()) {
             case R.id.action_save:
                 guardar();
@@ -179,10 +174,6 @@ public class RelevamientoDetalleFragment extends Fragment {
 
     }
 
-    private void close() {
-    }
-
-
     private void buildTable(TableLayout tableLayout, LayoutInflater inflater, Context context) {
 
         Resources res = getResources();
@@ -194,7 +185,6 @@ public class RelevamientoDetalleFragment extends Fragment {
             gradosCumplimiento[i] = gradosCumplimientoInt[i];
         }
 
-
         TableRow.LayoutParams tableRowParams = new TableRow.LayoutParams();
 
         //Cabecera de la tabla
@@ -202,24 +192,20 @@ public class RelevamientoDetalleFragment extends Fragment {
         tableRow.setId(ViewId.getInstance().getUniqueId());
 
         TextView rowHeaderText = new TextView(context);
-        rowHeaderText.setId(ViewId.getInstance().getUniqueId());
         rowHeaderText.setText("");
         tableRow.addView(rowHeaderText);
         for (int j = 0; j < mCandidatos.length; j++) {
             View candidatoView = GradoCumplimientoViewHelper.GetGradoCumplimientoView(candidatosColores.getColor(j, 0), inflater, tableRow);
-            candidatoView.setId(ViewId.getInstance().getUniqueId());
             tableRow.addView(candidatoView);
         }
         tableLayout.addView(tableRow);
 
 
         tableRowParams = new TableRow.LayoutParams();
-        //tableRowParams.weight=1;
         for (String materiale : mMateriales) {
             tableRow = (TableRow) inflater.inflate(R.layout.table_row_relevamiento, tableLayout, false);
 
             rowHeaderText = new TextView(context);
-            rowHeaderText.setId(ViewId.getInstance().getUniqueId());
             rowHeaderText.setGravity(Gravity.LEFT);
             rowHeaderText.setText(materiale);
 
@@ -375,67 +361,79 @@ public class RelevamientoDetalleFragment extends Fragment {
             return INSTANCE;
         }
     }
-
-    public class DatoRelevamientoPublicidad implements Parcelable {
-
-        @com.google.gson.annotations.SerializedName("candidato")
-        private String mCandidato;
-        @com.google.gson.annotations.SerializedName("material")
-        private String mMaterial;
-        @com.google.gson.annotations.SerializedName("cumplimiento")
-        private int mCumplimiento;
-
-        public DatoRelevamientoPublicidad() {
-
-        }
-
-        public DatoRelevamientoPublicidad(String candidato, String material, int cumplimiento) {
-            setCandidato(candidato);
-            setMaterial(material);
-            setCumplimiento(cumplimiento);
-        }
-
-        @Override
-        public int describeContents() {
-            return 0;
-        }
-
-        @Override
-        public void writeToParcel(Parcel dest, int flags) {
-            dest.writeString(getCandidato());
-            dest.writeString(getMaterial());
-            dest.writeInt(getCumplimiento());
-
-        }
-
-        public String getCandidato() {
-            return mCandidato;
-        }
-
-        public void setCandidato(String candidato) {
-            mCandidato = candidato;
-        }
-
-        public String getMaterial() {
-            return mMaterial;
-        }
-
-        public void setMaterial(String mMaterial) {
-            this.mMaterial = mMaterial;
-        }
-
-        public int getCumplimiento() {
-            return mCumplimiento;
-        }
-
-        public void setCumplimiento(int mCumplimiento) {
-            this.mCumplimiento = mCumplimiento;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            return o instanceof DatoRelevamientoPublicidad && ((DatoRelevamientoPublicidad) o).mCandidato == mCandidato;
-        }
-   }
-
 }
+class DatoRelevamientoPublicidad implements Parcelable {
+
+    @com.google.gson.annotations.SerializedName("candidato")
+    private String mCandidato;
+    @com.google.gson.annotations.SerializedName("material")
+    private String mMaterial;
+    @com.google.gson.annotations.SerializedName("cumplimiento")
+    private int mCumplimiento;
+
+    public DatoRelevamientoPublicidad() {
+
+    }
+
+    public DatoRelevamientoPublicidad(String candidato, String material, int cumplimiento) {
+        setCandidato(candidato);
+        setMaterial(material);
+        setCumplimiento(cumplimiento);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeString(mCandidato);
+        dest.writeString(mMaterial);
+        dest.writeInt(mCumplimiento);
+
+    }
+    public static final Parcelable.Creator<DatoRelevamientoPublicidad> CREATOR = new Parcelable.Creator<DatoRelevamientoPublicidad>() {
+        public DatoRelevamientoPublicidad createFromParcel(Parcel pc) {
+            return new DatoRelevamientoPublicidad(pc);
+        }
+        public DatoRelevamientoPublicidad[] newArray(int size) {
+            return new DatoRelevamientoPublicidad[size];
+        }
+    };
+    public DatoRelevamientoPublicidad(Parcel pc){
+        mCandidato = pc.readString();
+        mMaterial=pc.readString();
+        mCumplimiento=pc.readInt();
+    }
+
+    public String getCandidato() {
+        return mCandidato;
+    }
+
+    public void setCandidato(String candidato) {
+        mCandidato = candidato;
+    }
+
+    public String getMaterial() {
+        return mMaterial;
+    }
+
+    public void setMaterial(String mMaterial) {
+        this.mMaterial = mMaterial;
+    }
+
+    public int getCumplimiento() {
+        return mCumplimiento;
+    }
+
+    public void setCumplimiento(int mCumplimiento) {
+        this.mCumplimiento = mCumplimiento;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof DatoRelevamientoPublicidad && ((DatoRelevamientoPublicidad) o).mCandidato == mCandidato;
+    }
+}
+

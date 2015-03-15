@@ -11,8 +11,6 @@
     <string name="action_guardar">Guardar</string>
     <string name="string_cancelar">Cancelar</string>
 
-<!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
     <string name="action_nuevo">Nuevo</string>
     <string name="action_refresh">Actualizar</string>
     <string name="title_activity_relevamiento_detalle">RelevamientoDetalleActivity</string>
@@ -23,4 +21,6 @@
     <string name="direccion_estado_multiples_candidatos">Más de una dirección</string>
     <string name="direccion_estado_no_encontrada">Direccion no encontrada</string>
     <string name="direccion_estado_pendiente">pendiente...</string>
+
+    <string name="title_activity_splash">LANUS TIENE FUTURO</string>
 </resources>
