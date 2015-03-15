@@ -2,8 +2,6 @@ package com.entaconsulting.pruebalocalizacion;
 
 import android.content.Intent;
 import android.location.Location;
-import android.os.Handler;
-import android.os.ResultReceiver;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.view.Menu;
@@ -13,7 +11,6 @@ import android.view.MenuItem;
 import com.entaconsulting.pruebalocalizacion.helpers.GooglePlayServicesHelper;
 import com.entaconsulting.pruebalocalizacion.helpers.MessageHelper;
 import com.entaconsulting.pruebalocalizacion.models.Relevamiento;
-import com.entaconsulting.pruebalocalizacion.services.SincronizationService;
 
 public class RelevamientoActivity extends FragmentActivity
         implements RelevamientoFragment.OnFragmentInteractionListener,
@@ -80,7 +77,7 @@ public class RelevamientoActivity extends FragmentActivity
     }
 
     private void addRelevamientoResult(final Relevamiento relevamiento) {
-        RelevamientoFragment fragment = (RelevamientoFragment) getSupportFragmentManager().findFragmentById(R.id.detalle_relevamiento_fragment);
+        RelevamientoFragment fragment = (RelevamientoFragment) getSupportFragmentManager().findFragmentById(R.id.relevamiento_fragment);
         fragment.addItem(relevamiento);
     }
 
@@ -132,26 +129,5 @@ public class RelevamientoActivity extends FragmentActivity
         return mGooglePlayServices.getLastKnownLocation();
     }
 
-    class AddressResultReceiver extends ResultReceiver {
-        private String mAddressOutput;
-
-        public AddressResultReceiver(Handler handler) {
-            super(handler);
-        }
-
-        @Override
-        protected void onReceiveResult(int resultCode, Bundle resultData) {
-
-            // Display the address string
-            // or an error message sent from the intent service.
-            mAddressOutput = resultData.getString(SincronizationService.Constants.RESULT_DATA_KEY);
-
-            // Show a toast message if an address was found.
-            if (resultCode == SincronizationService.Constants.SERVICE_STATUS_SUCCESS) {
-                MessageHelper.createAndShowDialog(getParent(),mAddressOutput,"Direccion");
-            }
-
-        }
-    }
 }
 

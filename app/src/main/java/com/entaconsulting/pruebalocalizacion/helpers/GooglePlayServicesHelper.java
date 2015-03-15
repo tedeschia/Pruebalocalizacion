@@ -184,8 +184,6 @@ public class GooglePlayServicesHelper implements
     }
 
     public void startLocationUpdates(long interval, long fastestInterval){
-        if(!mGoogleApiClient.isConnected())
-            return;
 
         mLocationRequest = new LocationRequest();
         mLocationRequest.setInterval(interval);
@@ -193,6 +191,7 @@ public class GooglePlayServicesHelper implements
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
 
         mLocationUpdates = true;
+
         startLocationUpdatesInternal();
 
     }
