@@ -8,7 +8,7 @@ android {
         applicationId "com.entaconsulting.pruebalocalizacion"
         minSdkVersion 14
         targetSdkVersion 17
-        versionCode 2
+        versionCode 3
         versionName "alpha"
     }
     buildTypes {
