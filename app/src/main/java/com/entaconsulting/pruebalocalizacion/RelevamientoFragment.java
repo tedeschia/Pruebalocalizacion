@@ -138,36 +138,18 @@ public class RelevamientoFragment extends Fragment {
     }
     private void inicializarDatos() {
 
-        try {
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        mClient = new DataHelper(getActivity());
 
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        final View main = inflater.inflate(R.layout.fragment_relevamiento, container, false);
+        View main = inflater.inflate(R.layout.fragment_relevamiento, container, false);
         mProgressBar = (ProgressBar)main.findViewById(R.id.loadingProgressBar);
         mProgressBar.setVisibility(ProgressBar.GONE);
 
-        try {
-
-            mClient = new DataHelper(getActivity());
-            mClient.connect(new DataHelper.IServiceCallback() {
-                        @Override
-                        public void onServiceReady() {
-                            inicializarLista(getActivity(), main);
-                        }
-                        @Override
-                        public void onAuthenticationFailed() {
-                            MessageHelper.createAndShowDialog(getActivity(),"No se ha podido autenticar al usuario", "Error");
-                        }
-                    });
-        }catch(Exception e){
-            MessageHelper.createAndShowDialog(getActivity(),e,"Error");
-        }
+        inicializarLista(getActivity(), main);
 
         return main;
     }
@@ -177,8 +159,8 @@ public class RelevamientoFragment extends Fragment {
         // Create the Mobile Service Client instance, using the provided
         // Mobile Service URL and key
         // Get the Mobile Service Table instance to use
-        mRelevamientoTable = mClient.getRelevamientoSyncTable();
-        mPullQuery = mClient.getRelevamientoTable()
+        mRelevamientoTable = mClient.getClient().getSyncTable(Relevamiento.class);
+        mPullQuery = mClient.getClient().getTable(Relevamiento.class)
                 .orderBy("fecha", QueryOrder.Descending)
                 .top(1000);
 
@@ -212,6 +194,28 @@ public class RelevamientoFragment extends Fragment {
             MessageHelper.createAndShowDialog(getActivity(), "No se encuentra conectado", "Error");
         }else {
             startSyncService();
+        }
+    }
+
+    private void startAnimation(MenuItem item) {
+        mAnimatedRefreshMenuItem = item;
+
+        LayoutInflater inflater = getActivity().getLayoutInflater();
+        ImageView iv = (ImageView) inflater.inflate(R.layout.action_refresh_image, null);
+
+        Animation rotation = AnimationUtils.loadAnimation(getActivity(), R.anim.refresh_rotate);
+        rotation.setRepeatCount(Animation.INFINITE);
+        iv.startAnimation(rotation);
+
+        item.setActionView(iv);
+    }
+    private void stopAnimation(){
+        if(mAnimatedRefreshMenuItem!=null) {
+            View actionView = mAnimatedRefreshMenuItem.getActionView();
+            if (actionView != null) {
+                actionView.clearAnimation();
+                mAnimatedRefreshMenuItem.setActionView(null);
+            }
         }
     }
 
@@ -258,6 +262,28 @@ public class RelevamientoFragment extends Fragment {
         }.execute();
 
     }
+    private void refreshItemsFromTable() {
+
+        // Get the items that weren't marked as completed and add them in the
+        // adapter
+
+        new AsyncTask<Void, Void, Void>(){
+            @Override
+            protected Void doInBackground(Void... params) {
+                try {
+                    //mClient.getClient().getSyncContext().push().get();
+                    //mRelevamientoTable.pull(mPullQuery).get();
+                    loadItemsFromTable();
+                } catch (Exception e){
+                    MessageHelper.createAndShowDialog(getActivity(), e, "Error");
+                }
+
+                return null;
+            }
+        }.execute();
+
+    }
+
     public void addItem(final Relevamiento relevamiento) {
         if (mClient == null) {
             MessageHelper.createAndShowDialog(getActivity(), "No se encuentra conectado al servicio de datos","ERROR");

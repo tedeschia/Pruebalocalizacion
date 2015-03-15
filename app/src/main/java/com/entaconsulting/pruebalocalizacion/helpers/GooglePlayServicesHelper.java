@@ -184,9 +184,6 @@ public class GooglePlayServicesHelper implements
     }
 
     public void startLocationUpdates(long interval, long fastestInterval){
-        if(!mGoogleApiClient.isConnected())
-            return;
-
         mLocationRequest = new LocationRequest();
         mLocationRequest.setInterval(interval);
         mLocationRequest.setFastestInterval(fastestInterval);
@@ -197,9 +194,6 @@ public class GooglePlayServicesHelper implements
 
     }
     public void stopLocationUpdates(){
-        if(!mGoogleApiClient.isConnected())
-            return;
-
         mLocationUpdates = false;
         LocationServices.FusedLocationApi.removeLocationUpdates(
                 mGoogleApiClient, this);

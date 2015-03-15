@@ -55,20 +55,12 @@ public class SincronizationService extends IntentService {
         }
 
         try {
-
-            broadcastStart();
-
-            //sincronizo con el server
             if(mClient==null) {
                 mClient = new DataHelper(getApplicationContext());
-                mClient.connect(null);
-                mRelevamientoTable = mClient.getRelevamientoSyncTable();
-            } else{
-                if(!mClient.isAuthenticated()){
-                    broadcastError("No se encuentra autenticado");
-                    return;
-                }
+                mRelevamientoTable = mClient.getClient().getSyncTable(Relevamiento.class);
             }
+
+            broadcastStart();
 
             ArrayList<Relevamiento> pendientes = getPendientes();
 
@@ -79,12 +71,8 @@ public class SincronizationService extends IntentService {
                 procesarPendientes(pendientes);
             }
 
-            try{
-                mClient.pushData().get();
-            } catch(Exception e){
-                broadcastError("No se han podido enviar los datos");
-            }
-
+            //sincronizo con el server
+            mClient.getClient().getSyncContext().push().get();
             broadcastProgress(null);
             //mRelevamientoTable.pull(mPullQuery).get();
 
@@ -196,7 +184,7 @@ public class SincronizationService extends IntentService {
 
 
     public ArrayList<Relevamiento> getPendientes() throws ExecutionException, InterruptedException {
-        ExecutableQuery<Relevamiento> query = mClient.getRelevamientoTable()
+        ExecutableQuery<Relevamiento> query = mClient.getClient().getTable(Relevamiento.class)
                 .where().field("direccionEstado").eq(Relevamiento.EstadosDireccion.Pendiente);
 
         return mRelevamientoTable.read(query).get();

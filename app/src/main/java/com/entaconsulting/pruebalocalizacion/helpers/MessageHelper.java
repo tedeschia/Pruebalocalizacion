@@ -21,7 +21,7 @@ public class MessageHelper{
         }
 
     }
-    public static void createAndShowDialog(Activity activity, Throwable exception, String title) {
+    public static void createAndShowDialog(Activity activity, Exception exception, String title) {
         Throwable ex = exception;
         if(exception.getCause() != null){
             ex = exception.getCause();
