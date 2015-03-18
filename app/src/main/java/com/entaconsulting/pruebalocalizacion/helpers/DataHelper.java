@@ -59,7 +59,9 @@ public class DataHelper {
             // Mobile Service URL and key
             mClient = new MobileServiceClient(
                     "https://relevamientoterritorial.azure-mobile.net/",
-                    "BQbVnKfbptcoGWgAuKQJyzYmCDjdII54",
+                    "BQbVnKfbptcoGWgAuKQJyzYmCDjdII54", // produccion
+                    /*"https://relevamientoterritorial-test.azure-mobile.net/",
+                    "HeUerGjvQaIVRMmVQFMdhIlmnKxUxs61", // testing*/
                     mContext)
                     .withFilter(new RefreshTokenCacheFilter());
 
@@ -345,7 +347,7 @@ public class DataHelper {
                             // with the new token.
                             if (mAtomicAuthenticatingFlag.compareAndSet(false, true))
                             {
-                                if(mIsActivity !=null) { //SOLO PUEDO AUTENTICAR SI ESTOY EN UNA ACTIVITY, SI ESTOY EN UN SERVICIO NO
+                                if(mIsActivity) { //SOLO PUEDO AUTENTICAR SI ESTOY EN UNA ACTIVITY, SI ESTOY EN UN SERVICIO NO
                                     // Authenticate on UI thread
                                     ((Activity)mContext).runOnUiThread(new Runnable() {
                                         @Override
@@ -358,12 +360,14 @@ public class DataHelper {
                                             }
                                         }
                                     });
+                                    // Wait for authentication to complete then update the token in the request.
+                                    waitAndUpdateRequestToken(request);
+                                    mAtomicAuthenticatingFlag.set(false);
+                                } else {
+                                    return null;
                                 }
                             }
 
-                            // Wait for authentication to complete then update the token in the request.
-                            waitAndUpdateRequestToken(request);
-                            mAtomicAuthenticatingFlag.set(false);
                         }
                     }
                 }
