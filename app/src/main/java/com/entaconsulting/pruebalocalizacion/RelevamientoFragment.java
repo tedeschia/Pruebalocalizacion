@@ -5,9 +5,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.location.Location;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.LocalBroadcastManager;
 import android.view.LayoutInflater;
@@ -16,10 +17,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
 import android.widget.ArrayAdapter;
-import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -30,8 +28,6 @@ import com.entaconsulting.pruebalocalizacion.helpers.MessageHelper;
 import com.entaconsulting.pruebalocalizacion.models.Relevamiento;
 import com.entaconsulting.pruebalocalizacion.services.SincronizationService;
 import com.google.common.base.Optional;
-import com.microsoft.windowsazure.mobileservices.table.query.Query;
-import com.microsoft.windowsazure.mobileservices.table.query.QueryOrder;
 import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
 
 import java.text.DateFormat;
@@ -51,14 +47,9 @@ import static com.microsoft.windowsazure.mobileservices.table.query.QueryOperati
 public class RelevamientoFragment extends Fragment {
     // TODO: Rename parameter arguments, choose names that match
     // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
+    public static final String ARG_PROYECTO = "proyectoId";
     private static final String TAG = "RelevamientoFragment";
     private static final java.lang.String STATE_SINCRONIZANDO = "relevamiento_sincronizando";
-
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
 
     private DataHelper mClient;
 
@@ -66,7 +57,10 @@ public class RelevamientoFragment extends Fragment {
      * Mobile Service Table used to access data
      */
     private MobileServiceSyncTable<Relevamiento> mRelevamientoTable;
-    private Query mPullQuery;
+    private String mProyectoClave;
+    private SharedPreferences mSharedPref;
+
+
 
     /**
      * Adapter to sync the items list with the view
@@ -78,7 +72,6 @@ public class RelevamientoFragment extends Fragment {
      * Progress spinner to use for table operations
      */
     private ProgressBar mProgressBar;
-    private MenuItem mAnimatedRefreshMenuItem;
 
     private OnFragmentInteractionListener mListener;
 
@@ -88,16 +81,13 @@ public class RelevamientoFragment extends Fragment {
      * Use this factory method to create a new instance of
      * this fragment using the provided parameters.
      *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
      * @return A new instance of fragment RelevamientoFragment.
      */
     // TODO: Rename and change types and number of parameters
-    public static RelevamientoFragment newInstance(String param1, String param2) {
+    public static RelevamientoFragment newInstance(String proyectoId) {
         RelevamientoFragment fragment = new RelevamientoFragment();
         Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
+        args.putString(ARG_PROYECTO, proyectoId);
         fragment.setArguments(args);
         return fragment;
     }
@@ -109,14 +99,16 @@ public class RelevamientoFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+
+        //si no tengo proyecto redirijo a settings
+        mSharedPref = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        mProyectoClave = mSharedPref.getString(SettingsFragment.KEY_PREF_PROYECTO,null);
+        if(mProyectoClave==null){
+            throw new RuntimeException("Clave del proyecto no definida");
         }
+
         registerBroadcastReceiver();
         setHasOptionsMenu(true);
-
-        inicializarDatos();
     }
 
     private void registerBroadcastReceiver() {
@@ -136,14 +128,6 @@ public class RelevamientoFragment extends Fragment {
     public void onSaveInstanceState(Bundle savedInstanceState) {
         super.onSaveInstanceState(savedInstanceState);
     }
-    private void inicializarDatos() {
-
-        try {
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-    }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -158,6 +142,7 @@ public class RelevamientoFragment extends Fragment {
             mClient.connect(new DataHelper.IServiceCallback() {
                         @Override
                         public void onServiceReady() {
+                            inicializarDatos();
                             inicializarLista(getActivity(), main);
                         }
                         @Override
@@ -172,24 +157,25 @@ public class RelevamientoFragment extends Fragment {
         return main;
     }
 
+    private void inicializarDatos() {
+        mRelevamientoTable = mClient.getRelevamientoSyncTable();
+        mDatosRelevamiento = new ArrayList<Relevamiento>();
+
+    }
+
     private void inicializarLista(Context context, View view){
 
         // Create the Mobile Service Client instance, using the provided
         // Mobile Service URL and key
         // Get the Mobile Service Table instance to use
-        mRelevamientoTable = mClient.getRelevamientoSyncTable();
-        mPullQuery = mClient.getRelevamientoTable()
-                .orderBy("fecha", QueryOrder.Descending)
-                .top(1000);
 
-        mDatosRelevamiento = new ArrayList<>();
         // Create an adapter to bind the items with the view
         mAdapter = new RelevamientoAdapter(context, R.layout.row_list_relevamiento, mDatosRelevamiento);
         ListView listViewRelevamiento = (ListView) view.findViewById(R.id.listViewRelevamiento);
         listViewRelevamiento.setAdapter(mAdapter);
 
-        // Load the items from the Mobile Service
         loadItemsFromTable();
+
     }
 
     @Override
@@ -242,7 +228,7 @@ public class RelevamientoFragment extends Fragment {
             protected Void doInBackground(Void... params) {
                 try {
                     mDatosRelevamiento.clear();
-                    mDatosRelevamiento.addAll(mRelevamientoTable.read(mPullQuery).get());
+                    mDatosRelevamiento.addAll(mRelevamientoTable.read(mClient.getRelevamientoQuery(mProyectoClave)).get());
                     getActivity().runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -265,6 +251,7 @@ public class RelevamientoFragment extends Fragment {
 
         //la dirección está pendiente hasta que se resuelva
         relevamiento.setDireccionEstado(Relevamiento.EstadosDireccion.Pendiente);
+        relevamiento.setProyectoClave(mProyectoClave);
 
         new AsyncTask<Void, Void, Void>(){
             @Override
@@ -327,7 +314,7 @@ public class RelevamientoFragment extends Fragment {
      * >Communicating with Other Fragments</a> for more information.
      */
     public interface OnFragmentInteractionListener {
-        public Location getLastKnownLocation();
+        public void seleccionarProyecto();
 
     }
 
@@ -404,7 +391,7 @@ public class RelevamientoFragment extends Fragment {
         public void onReceive(Context context, Intent intent) {
 
             int resultCode = intent.getIntExtra(SincronizationService.Constants.STATUS_DATA_EXTRA,-1);
-
+            String message;
 
             switch (resultCode) {
                 case SincronizationService.Constants.SERVICE_STATUS_START:
@@ -426,8 +413,32 @@ public class RelevamientoFragment extends Fragment {
                     endSyncService();
                     break;
                 case SincronizationService.Constants.SERVICE_STATUS_FAILURE:
-                    String message = intent.getStringExtra(SincronizationService.Constants.RESULT_DATA_KEY);
+                    message = intent.getStringExtra(SincronizationService.Constants.RESULT_DATA_KEY);
                     MessageHelper.createAndShowDialog(getActivity(), message, "Error");
+                    endSyncService();
+                    break;
+                case SincronizationService.Constants.SERVICE_STATUS_FAILURE_PROYECTO:
+                    message = intent.getStringExtra(SincronizationService.Constants.RESULT_DATA_KEY);
+                    MessageHelper.createAndShowDialog(getActivity(), message, "Error");
+                    mListener.seleccionarProyecto();
+                    endSyncService();
+                    break;
+                case SincronizationService.Constants.SERVICE_STATUS_FAILURE_AUTHENTICATION:
+                    try {
+                        mClient.authenticate(getActivity(), true, new DataHelper.IServiceCallback() {
+                            @Override
+                            public void onServiceReady() {
+                                //reintento sincronizar
+                            }
+
+                            @Override
+                            public void onAuthenticationFailed() {
+                                MessageHelper.createAndShowDialog(getActivity(), "No se ha podido autenticar al usuario", "Error");
+                            }
+                        });
+                    } catch (Exception e) {
+                        MessageHelper.createAndShowDialog(getActivity(), "No se ha podido autenticar al usuario", "Error");
+                    }
                     endSyncService();
             }
 
