@@ -25,11 +25,15 @@ import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
 
+import com.entaconsulting.pruebalocalizacion.helpers.ConfigurationHelper;
+import com.entaconsulting.pruebalocalizacion.models.Candidato;
+import com.entaconsulting.pruebalocalizacion.models.Categoria;
 import com.entaconsulting.pruebalocalizacion.models.Relevamiento;
 import com.google.gson.Gson;
 
 import org.w3c.dom.Text;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -53,8 +57,8 @@ public class RelevamientoDetalleFragment extends Fragment {
     public static final String ARG_LOCALIZACION = "localizacion";
 
     private HashMap<String, DatoRelevamientoPublicidad> mDatosRelevamiento;
-    private String[] mCandidatos;
-    private String[] mMateriales;
+    private ArrayList<Candidato> mCandidatos;
+    private ArrayList<Categoria> mMateriales;
 
     private OnFragmentInteractionListener mListener;
     private Location mLocalizacion;
@@ -113,28 +117,31 @@ public class RelevamientoDetalleFragment extends Fragment {
     private HashMap<String, DatoRelevamientoPublicidad> datosBdAVista(DatoRelevamientoPublicidad[] datosIniciales) {
         HashMap<String, DatoRelevamientoPublicidad> datos = new HashMap<>();
         if (datosIniciales == null) {
-            for (String mMaterial : mMateriales) {
-                for (String mCandidato : mCandidatos) {
-                    DatoRelevamientoPublicidad dato = new DatoRelevamientoPublicidad(mCandidato, mMaterial, 0);
-                    datos.put(getKey(dato.getCandidato(), dato.getMaterial()), dato);
+            for (Categoria mMaterial : mMateriales) {
+                for (Candidato mCandidato : mCandidatos) {
+                    DatoRelevamientoPublicidad dato = new DatoRelevamientoPublicidad(mCandidato.getNombre(), mMaterial.getNombre(), 0);
+                    datos.put(getKey(mCandidato, mMaterial), dato);
                 }
             }
         } else {
             for (DatoRelevamientoPublicidad dato : datosIniciales) {
-                datos.put(getKey(dato.getCandidato(), dato.getMaterial()), dato);
+                datos.put(getKey(dato), dato);
             }
         }
         return datos;
     }
 
-    private String getKey(String candidato, String material) {
-        return candidato + material;
+    private String getKey(DatoRelevamientoPublicidad dato) {
+        return dato.getCandidato() + dato.getMaterial();
+    }
+
+    private String getKey(Candidato candidato, Categoria material) {
+        return candidato.getNombre() + material.getNombre();
     }
 
     private void leerConfiguracion() {
-        Resources res = getResources();
-        mCandidatos = res.getStringArray(R.array.candidatos_array);
-        mMateriales = res.getStringArray(R.array.materiales_array);
+        mCandidatos = ConfigurationHelper.getCandidatos();
+        mMateriales = ConfigurationHelper.getCategorias();
     }
 
     @Override
@@ -180,7 +187,6 @@ public class RelevamientoDetalleFragment extends Fragment {
 
         Resources res = getResources();
 
-        TypedArray candidatosColores = res.obtainTypedArray(R.array.candidatos_colores_array);
         String[] gradosCumplimientoStr = res.getStringArray(R.array.grado_cumplimiento_array);
         //String[] gradosCumplimiento = new String[gradosCumplimientoStr.length];
         //for (int i = 0; i < gradosCumplimientoStr.length; i++) {
@@ -196,28 +202,28 @@ public class RelevamientoDetalleFragment extends Fragment {
         TextView rowHeaderText = new TextView(context);
         rowHeaderText.setText("");
         tableRow.addView(rowHeaderText);
-        for (int j = 0; j < mCandidatos.length; j++) {
+        for (Candidato candidato:mCandidatos) {
             View candidatoView = inflater.inflate(R.layout.spinner_grado_cumplimiento_selected, tableRow, false);
-            candidatoView.setBackgroundColor(GradoCumplimientoViewHelper.GetGradoCumplimientoColor(candidatosColores.getColor(j, 0),1,1));
+            candidatoView.setBackgroundColor(GradoCumplimientoViewHelper.GetGradoCumplimientoColor(Color.parseColor(candidato.getColor()),1,1));
             tableRow.addView(candidatoView);
         }
         tableLayout.addView(tableRow);
 
 
         tableRowParams = new TableRow.LayoutParams();
-        for (String materiale : mMateriales) {
+        for (Categoria materiale : mMateriales) {
             tableRow = (TableRow) inflater.inflate(R.layout.table_row_relevamiento, tableLayout, false);
 
             rowHeaderText = new TextView(context);
             rowHeaderText.setGravity(Gravity.LEFT);
-            rowHeaderText.setText(materiale);
+            rowHeaderText.setText(materiale.getNombre());
 
             tableRow.addView(rowHeaderText);
 
-            for (int j = 0; j < mCandidatos.length; j++) {
+            for (Candidato candidato:mCandidatos) {
 
-                DatoRelevamientoPublicidad dato = mDatosRelevamiento.get(getKey(mCandidatos[j], materiale));
-                View spinner = crearSpinner(context, candidatosColores.getColor(j, 0), gradosCumplimientoStr, dato);
+                DatoRelevamientoPublicidad dato = mDatosRelevamiento.get(getKey(candidato, materiale));
+                View spinner = crearSpinner(context, candidato.getColor(), gradosCumplimientoStr, dato);
 
                 tableRow.addView(spinner, tableRowParams);
             }
@@ -226,7 +232,7 @@ public class RelevamientoDetalleFragment extends Fragment {
         }
     }
 
-    private View crearSpinner(Context context, int color, String[] gradosCumplimiento, final DatoRelevamientoPublicidad dato) {
+    private View crearSpinner(Context context, String color, String[] gradosCumplimiento, final DatoRelevamientoPublicidad dato) {
         Spinner spinner = new Spinner(context);
         spinner.setId(ViewId.getInstance().getUniqueId());
 
@@ -288,10 +294,10 @@ public class RelevamientoDetalleFragment extends Fragment {
         private int mBaseColor;
         private int mMaxGrado;
 
-        public GradoCumplimientoAdapter(Context ctx, int txtViewResourceId, String[] grados, int baseColor) {
+        public GradoCumplimientoAdapter(Context ctx, int txtViewResourceId, String[] grados, String baseColor) {
             super(ctx, txtViewResourceId, grados);
             //mObjects = objects;
-            mBaseColor = baseColor;
+            mBaseColor = Color.parseColor(baseColor);
             mMaxGrado = grados.length-1;
         }
 

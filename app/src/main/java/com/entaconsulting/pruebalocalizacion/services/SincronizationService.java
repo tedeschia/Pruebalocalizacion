@@ -2,17 +2,24 @@ package com.entaconsulting.pruebalocalizacion.services;
 
 import android.app.IntentService;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.location.Address;
 import android.location.Geocoder;
+import android.preference.PreferenceManager;
 import android.support.v4.content.LocalBroadcastManager;
 import android.text.TextUtils;
 
 import com.entaconsulting.pruebalocalizacion.R;
+import com.entaconsulting.pruebalocalizacion.SettingsFragment;
 import com.entaconsulting.pruebalocalizacion.models.Relevamiento;
 import com.entaconsulting.pruebalocalizacion.helpers.ConnectivityHelper;
 import com.entaconsulting.pruebalocalizacion.helpers.DataHelper;
 import com.microsoft.windowsazure.mobileservices.table.query.ExecutableQuery;
 import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
+import com.microsoft.windowsazure.mobileservices.table.sync.operations.TableOperationError;
+import com.microsoft.windowsazure.mobileservices.table.sync.push.MobileServicePushFailedException;
+import com.microsoft.windowsazure.mobileservices.table.sync.push.MobileServicePushStatus;
+import com.microsoft.windowsazure.mobileservices.table.sync.synchandler.MobileServiceSyncHandlerException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -49,8 +56,7 @@ public class SincronizationService extends IntentService {
         //mReceiver = intent.getParcelableExtra(Constants.RECEIVER);
 
         if(!ConnectivityHelper.isConnected(getApplicationContext())){
-            broadcastSuccess();
-            scheduleRetry();
+            broadcastError("No se encuentra conectado");
             return;
         }
 
@@ -79,14 +85,20 @@ public class SincronizationService extends IntentService {
                 procesarPendientes(pendientes);
             }
 
+            broadcastProgress(null);
+
             try{
                 mClient.pushData().get();
             } catch(Exception e){
-                broadcastError("No se han podido enviar los datos");
+                if(isAuthenticationError(e)){
+                    broadcastError("No se pudo autenticar", Constants.SERVICE_STATUS_FAILURE_AUTHENTICATION);
+                    return;
+                }else{
+                    String msg = getPushErrorMessage(e);
+                    throw new Exception(msg);
+                }
             }
-
             broadcastProgress(null);
-            //mRelevamientoTable.pull(mPullQuery).get();
 
             broadcastSuccess();
 
@@ -98,8 +110,29 @@ public class SincronizationService extends IntentService {
 
     }
 
-    private void scheduleRetry() {
+    private String getPushErrorMessage(Exception e) {
 
+        Throwable cause = e.getCause();
+        String mensaje = "";
+        if(cause instanceof MobileServicePushFailedException){
+            MobileServicePushFailedException ex = (MobileServicePushFailedException) cause;
+            for(TableOperationError opError:ex.getPushCompletionResult().getOperationErrors()){
+                mensaje += opError.getCreatedAt().toString() + "-"+ opError.getErrorMessage()+"\r\n";
+            }
+
+        }else{
+            mensaje = e.getMessage();
+        }
+        return mensaje;
+    }
+
+    private boolean isAuthenticationError(Exception e) {
+        Throwable cause = e.getCause();
+        if(cause == null || !(cause instanceof MobileServicePushFailedException) ){
+            return false;
+        }
+        MobileServicePushFailedException ex = (MobileServicePushFailedException)cause;
+        return ex.getPushCompletionResult().getStatus() == MobileServicePushStatus.CancelledByAuthenticationError;
     }
 
     private void procesarPendientes(ArrayList<Relevamiento> pendientes) {
@@ -166,12 +199,14 @@ public class SincronizationService extends IntentService {
         }
     }
     private void broadcastError(String message) {
+        broadcastError(message, Constants.SERVICE_STATUS_FAILURE);
+    }
+    private void broadcastError(String message, int statusCode) {
         Intent intent = new Intent(Constants.BROADCAST_ACTION)
-            .putExtra(Constants.STATUS_DATA_EXTRA,Constants.SERVICE_STATUS_FAILURE)
-            .putExtra(Constants.RESULT_DATA_KEY, message);
+                .putExtra(Constants.STATUS_DATA_EXTRA,statusCode)
+                .putExtra(Constants.RESULT_DATA_KEY, message);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
-
     private void broadcastSuccess() {
         Intent intent = new Intent(Constants.BROADCAST_ACTION)
                 .putExtra(Constants.STATUS_DATA_EXTRA, Constants.SERVICE_STATUS_SUCCESS);
@@ -207,6 +242,8 @@ public class SincronizationService extends IntentService {
         public static final int SERVICE_STATUS_FAILURE = 1;
         public static final int SERVICE_STATUS_PROGRESS = 2;
         public static final int SERVICE_STATUS_START = 3;
+        public static final int SERVICE_STATUS_FAILURE_AUTHENTICATION = 4;
+        public static final int SERVICE_STATUS_FAILURE_PROYECTO = 5;
 
         public static final String PACKAGE_NAME =
                 "com.google.android.gms.location.sample.locationaddress";
@@ -223,5 +260,7 @@ public class SincronizationService extends IntentService {
         public static final String BROADCAST_ACTION = PACKAGE_NAME + ".BROADCAST";
         public static final String STATUS_DATA_EXTRA = PACKAGE_NAME + ".STATUS_DATA_EXTRA";
         public static final String PROGRESS_DATA_EXTRA = PACKAGE_NAME + ".PROGRESS_DATA_EXTRA";
+
+        public static final String EX_PROYECTO_NO_AUTORIZADO = "Proyecto no autorizado";
     }
 }

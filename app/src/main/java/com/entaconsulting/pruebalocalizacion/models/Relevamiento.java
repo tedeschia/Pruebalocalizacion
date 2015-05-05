@@ -21,6 +21,8 @@ public class Relevamiento implements Parcelable {
     private String mDireccionEstado;
     @com.google.gson.annotations.SerializedName("direccion")
     private String mDireccion;
+    @com.google.gson.annotations.SerializedName("proyectoClave")
+    private String mProyectoClave;
 
 
     public Relevamiento(){
@@ -92,6 +94,14 @@ public class Relevamiento implements Parcelable {
         this.mDireccion = mDireccion;
     }
 
+    public String getProyectoClave() {
+        return mProyectoClave;
+    }
+
+    public void setProyectoClave(String proyectoClave) {
+        this.mProyectoClave = proyectoClave;
+    }
+
     /*
     IMPLEMENTACION PARCELABLE
      */
@@ -109,6 +119,7 @@ public class Relevamiento implements Parcelable {
         dest.writeString(mDireccionEstado);
         dest.writeDouble(mLatitud);
         dest.writeDouble(mLongitud);
+        dest.writeString(mProyectoClave);
     }
     public static final Parcelable.Creator<Relevamiento> CREATOR = new Parcelable.Creator<Relevamiento>() {
         public Relevamiento createFromParcel(Parcel pc) {
@@ -126,6 +137,7 @@ public class Relevamiento implements Parcelable {
         mDireccionEstado = pc.readString();
         mLatitud = pc.readDouble();
         mLongitud = pc.readDouble();
+        mProyectoClave = pc.readString();
     }
 
 

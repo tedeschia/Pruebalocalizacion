@@ -1,16 +1,24 @@
 package com.entaconsulting.pruebalocalizacion.helpers;
 
 import android.app.Activity;
+import android.app.DownloadManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.entaconsulting.pruebalocalizacion.RelevamientoFragment;
+import com.entaconsulting.pruebalocalizacion.exceptions.NoAutenticadoException;
+import com.entaconsulting.pruebalocalizacion.models.Candidato;
+import com.entaconsulting.pruebalocalizacion.models.Categoria;
+import com.entaconsulting.pruebalocalizacion.models.Proyecto;
 import com.entaconsulting.pruebalocalizacion.models.Relevamiento;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.JsonObject;
 import com.microsoft.windowsazure.mobileservices.MobileServiceClient;
 import com.microsoft.windowsazure.mobileservices.MobileServiceException;
+import com.microsoft.windowsazure.mobileservices.MobileServiceList;
 import com.microsoft.windowsazure.mobileservices.authentication.MobileServiceAuthenticationProvider;
 import com.microsoft.windowsazure.mobileservices.authentication.MobileServiceUser;
 import com.microsoft.windowsazure.mobileservices.http.NextServiceFilterCallback;
@@ -19,18 +27,25 @@ import com.microsoft.windowsazure.mobileservices.http.ServiceFilterRequest;
 import com.microsoft.windowsazure.mobileservices.http.ServiceFilterResponse;
 import com.microsoft.windowsazure.mobileservices.table.MobileServiceConflictExceptionJson;
 import com.microsoft.windowsazure.mobileservices.table.MobileServiceTable;
+import com.microsoft.windowsazure.mobileservices.table.query.ExecutableQuery;
+import com.microsoft.windowsazure.mobileservices.table.query.QueryOrder;
 import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncContext;
 import com.microsoft.windowsazure.mobileservices.table.sync.MobileServiceSyncTable;
 import com.microsoft.windowsazure.mobileservices.table.sync.localstore.ColumnDataType;
 import com.microsoft.windowsazure.mobileservices.table.sync.localstore.SQLiteLocalStore;
 import com.microsoft.windowsazure.mobileservices.table.sync.operations.RemoteTableOperationProcessor;
 import com.microsoft.windowsazure.mobileservices.table.sync.operations.TableOperation;
+import com.microsoft.windowsazure.mobileservices.table.sync.operations.TableOperationError;
 import com.microsoft.windowsazure.mobileservices.table.sync.push.MobileServicePushCompletionResult;
 import com.microsoft.windowsazure.mobileservices.table.sync.synchandler.MobileServiceSyncHandler;
 import com.microsoft.windowsazure.mobileservices.table.sync.synchandler.MobileServiceSyncHandlerException;
 
+import org.apache.http.Header;
+import org.apache.http.StatusLine;
+
 import java.net.MalformedURLException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -78,7 +93,7 @@ public class DataHelper {
         }
     }
 
-    private void authenticate(final Context context, boolean bRefreshCache, final IServiceCallback serviceCallback) throws Exception {
+    public void authenticate(final Context context, boolean bRefreshCache, final IServiceCallback serviceCallback) throws Exception {
 
         bAuthenticating = true;
 
@@ -226,6 +241,20 @@ public class DataHelper {
     public MobileServiceTable<Relevamiento> getRelevamientoTable() {
         return mClient.getTable(Relevamiento.class);
     }
+    public MobileServiceSyncTable<Proyecto> getProyectoSyncTable() {
+        return mClient.getSyncTable(Proyecto.class);
+    }
+    public MobileServiceSyncTable<Categoria> getCategoriaSyncTable() {
+        return mClient.getSyncTable(Categoria.class);
+    }
+    public MobileServiceSyncTable<Candidato> getCandidatoSyncTable() {
+        return mClient.getSyncTable(Candidato.class);
+    }
+    public MobileServiceTable<Proyecto> getProyectoTable() {
+
+        return mClient.getTable(Proyecto.class);
+    }
+
     public com.google.common.util.concurrent.ListenableFuture<Void> pushData(){
         return mClient.getSyncContext().push();
     }
@@ -235,6 +264,7 @@ public class DataHelper {
             return;
 
         mTableDefinitionsReady = true;
+
         SQLiteLocalStore localStore = new SQLiteLocalStore(mClient.getContext(), "Relevamiento", null, 1);
         ConflictResolvingSyncHandler handler = new ConflictResolvingSyncHandler();
         MobileServiceSyncContext syncContext = mClient.getSyncContext();
@@ -247,11 +277,81 @@ public class DataHelper {
         tableDefinition.put("longitud", ColumnDataType.Real);
         tableDefinition.put("direccion", ColumnDataType.String);
         tableDefinition.put("direccionEstado", ColumnDataType.String);
-
+        tableDefinition.put("proyectoClave", ColumnDataType.String);
         localStore.defineTable("Relevamiento", tableDefinition);
+
+        Map<String, ColumnDataType> tableDefinitionProyecto = new HashMap<String, ColumnDataType>();
+        tableDefinitionProyecto.put("id", ColumnDataType.String);
+        tableDefinitionProyecto.put("nombre", ColumnDataType.String);
+        tableDefinitionProyecto.put("clave", ColumnDataType.String);
+        localStore.defineTable("Proyecto", tableDefinitionProyecto);
+
+        Map<String, ColumnDataType> tableDefinitionCandidato = new HashMap<String, ColumnDataType>();
+        tableDefinitionCandidato.put("id", ColumnDataType.String);
+        tableDefinitionCandidato.put("nombre", ColumnDataType.String);
+        tableDefinitionCandidato.put("color", ColumnDataType.String);
+        tableDefinitionCandidato.put("proyectoId", ColumnDataType.String);
+        tableDefinitionCandidato.put("orden", ColumnDataType.Integer);
+        localStore.defineTable("Candidato", tableDefinitionCandidato);
+
+        Map<String, ColumnDataType> tableDefinitionCategoria = new HashMap<String, ColumnDataType>();
+        tableDefinitionCategoria.put("id", ColumnDataType.String);
+        tableDefinitionCategoria.put("nombre", ColumnDataType.String);
+        tableDefinitionCategoria.put("proyectoId", ColumnDataType.String);
+        tableDefinitionCategoria.put("orden", ColumnDataType.Integer);
+        localStore.defineTable("Categoria", tableDefinitionCategoria);
+
         syncContext.initialize(localStore, handler).get();
 
     }
+
+    public ExecutableQuery<Relevamiento> getRelevamientoQuery(String proyectoClave) {
+        return getRelevamientoTable()
+                .where().field("proyectoClave").eq(proyectoClave)
+                .orderBy("fecha", QueryOrder.Descending)
+                .top(100);
+    }
+    public ExecutableQuery<Proyecto> getProyectoQuery(String proyectoClave) {
+        return getProyectoTable()
+                .where().field("clave").eq(proyectoClave)
+                .top(1);
+    }
+    public ExecutableQuery<Candidato> getCandidatoQuery(String proyectoId) {
+        return mClient.getTable(Candidato.class)
+                .where().field("proyectoId").eq(proyectoId)
+                .orderBy("orden", QueryOrder.Ascending);
+    }
+    public ExecutableQuery<Categoria> getCategoriaQuery(String proyectoId) {
+        return mClient.getTable(Categoria.class)
+                .where().field("proyectoId").eq(proyectoId)
+                .orderBy("orden",QueryOrder.Ascending);
+    }
+
+    public Void pullProyecto(String proyectoClave) throws InterruptedException, ExecutionException {
+        getCandidatoSyncTable().purge(null).get();
+        getCategoriaSyncTable().purge(null).get();
+        getProyectoSyncTable().purge(null).get();
+
+        getProyectoSyncTable().pull(getProyectoQuery(proyectoClave)).get();
+        //si el proyecto se cargó, cargo el resto de la configuración
+        Proyecto proyecto = getProyectoPorClave(proyectoClave);
+        if(proyecto!=null){
+            getCandidatoSyncTable().pull(getCandidatoQuery(proyecto.getId())).get();
+            getCategoriaSyncTable().pull(getCategoriaQuery(proyecto.getId())).get();
+        }
+        return null;
+
+    }
+
+    public Proyecto getProyectoPorClave(String proyectoClave) throws ExecutionException, InterruptedException {
+        MobileServiceList<Proyecto> proyectos = getProyectoSyncTable().read(getProyectoQuery(proyectoClave)).get();
+        if(proyectos.size()!=1){
+            return null;
+        }else{
+            return proyectos.get(0);
+        }
+    }
+
 
     private class ConflictResolvingSyncHandler implements MobileServiceSyncHandler {
 
@@ -267,7 +367,12 @@ public class DataHelper {
             } catch(MobileServiceConflictExceptionJson e){
                 ex = e;
             } catch (Throwable e) {
-                ex =  (MobileServiceConflictExceptionJson)e.getCause();
+                Throwable cause = e.getCause();
+                if(cause instanceof MobileServiceConflictExceptionJson){
+                    ex =  (MobileServiceConflictExceptionJson)cause;
+                }else{
+                    throw new MobileServiceSyncHandlerException(e);
+                }
             }
 
             if (ex != null) {
@@ -296,6 +401,9 @@ public class DataHelper {
         @Override
         public void onPushComplete(MobileServicePushCompletionResult result)
                 throws MobileServiceSyncHandlerException {
+            if(result.getOperationErrors().size()>0){
+                throw new MobileServiceSyncHandlerException("Error enviando datos al servidor");
+            }
         }
     }
 
@@ -363,8 +471,11 @@ public class DataHelper {
                                     // Wait for authentication to complete then update the token in the request.
                                     waitAndUpdateRequestToken(request);
                                     mAtomicAuthenticatingFlag.set(false);
-                                } else {
-                                    return null;
+                                }else{
+                                    SettableFuture<ServiceFilterResponse> failureFuture = SettableFuture.create();
+                                    failureFuture.setException(mEx);
+                                    return failureFuture;
+                                    //future.setException()
                                 }
                             }
 

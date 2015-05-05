@@ -22,6 +22,7 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import com.entaconsulting.pruebalocalizacion.helpers.ConfigurationHelper;
 import com.entaconsulting.pruebalocalizacion.helpers.ConnectivityHelper;
 import com.entaconsulting.pruebalocalizacion.helpers.DataHelper;
 import com.entaconsulting.pruebalocalizacion.helpers.MessageHelper;
@@ -102,7 +103,7 @@ public class RelevamientoFragment extends Fragment {
 
         //si no tengo proyecto redirijo a settings
         mSharedPref = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        mProyectoClave = mSharedPref.getString(SettingsFragment.KEY_PREF_PROYECTO,null);
+        mProyectoClave = mSharedPref.getString(SettingsFragment.KEY_PREF_PROYECTO_CLAVE,null);
         if(mProyectoClave==null){
             throw new RuntimeException("Clave del proyecto no definida");
         }
@@ -136,23 +137,9 @@ public class RelevamientoFragment extends Fragment {
         mProgressBar = (ProgressBar)main.findViewById(R.id.loadingProgressBar);
         mProgressBar.setVisibility(ProgressBar.GONE);
 
-        try {
-
-            mClient = new DataHelper(getActivity());
-            mClient.connect(new DataHelper.IServiceCallback() {
-                        @Override
-                        public void onServiceReady() {
-                            inicializarDatos();
-                            inicializarLista(getActivity(), main);
-                        }
-                        @Override
-                        public void onAuthenticationFailed() {
-                            MessageHelper.createAndShowDialog(getActivity(),"No se ha podido autenticar al usuario", "Error");
-                        }
-                    });
-        }catch(Exception e){
-            MessageHelper.createAndShowDialog(getActivity(),e,"Error");
-        }
+        mClient = ConfigurationHelper.getClient();
+        inicializarDatos();
+        inicializarLista(getActivity(), main);
 
         return main;
     }
