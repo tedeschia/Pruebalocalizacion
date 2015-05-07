@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-    <EditTextPreference
+    <com.entaconsulting.pruebalocalizacion.ui.EditTextShowPreference
         android:key="proyecto"
         android:title="@string/pref_proyecto_title"
         android:summary="@string/pref_proyecto_summary"

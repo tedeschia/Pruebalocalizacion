@@ -16,22 +16,23 @@ import android.preference.PreferenceCategory;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.preference.RingtonePreference;
+import android.support.v4.app.FragmentActivity;
 import android.text.TextUtils;
 import android.view.MenuItem;
 import android.support.v4.app.NavUtils;
 
 
+import com.entaconsulting.pruebalocalizacion.models.Relevamiento;
+
 import java.util.List;
 
-public class SettingsActivity extends Activity {
+public class SettingsActivity extends FragmentActivity{
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // Display the fragment as the main content.
-        getFragmentManager().beginTransaction()
-                .replace(android.R.id.content, new SettingsFragment())
-                .commit();
+        setContentView(R.layout.activity_settings);
     }
+
+
 }
